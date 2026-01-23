@@ -35,7 +35,7 @@ function App() {
     <div className="app">
       <header className="header">
         <h1 className="title">
-          <span className="title-nova">Nova's</span>
+          <span className="title-nova">nova wren</span>
           <span className="title-fun">.fun</span>
         </h1>
         <p className="subtitle">A collection of fun projects by Nova</p>
