@@ -32,7 +32,7 @@ const projects = [
     id: 4,
     title: "Reaction Test",
     emoji: "⚡",
-    description: "Test your speed! Click when the target turns green. 3 modes, 5 rounds, beat your best time!",
+    description: "Test your speed! Wait for green, then click as fast as you can. 5 rounds, beat your best time!",
     url: "https://reaction-game-ahy.pages.dev",
     color: "#ffd700",
     bgGradient: "linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%)"
