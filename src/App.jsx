@@ -21,12 +21,21 @@ const projects = [
   },
   {
     id: 3,
-    title: "Coming Soon...",
-    emoji: "🚀",
-    description: "More fun projects are on the way! Stay tuned!",
-    url: null,
-    color: "#a855f7",
-    bgGradient: "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)"
+    title: "Puzzle Game",
+    emoji: "🧩",
+    description: "Solve 102 riddles and puzzles! Test your brain with typing and multiple choice challenges!",
+    url: "https://games.nova-wren.fun?game=puzzle",
+    color: "#11998e",
+    bgGradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
+  },
+  {
+    id: 4,
+    title: "Reaction Test",
+    emoji: "⚡",
+    description: "Test your speed! Click when the target turns green. 3 modes, 5 rounds, beat your best time!",
+    url: "https://reaction-game-ahy.pages.dev",
+    color: "#ffd700",
+    bgGradient: "linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%)"
   }
 ]
 
