@@ -1,4 +1,5 @@
 import './App.css'
+import { count } from './count'
 
 const projects = [
   {
@@ -7,6 +8,7 @@ const projects = [
     emoji: "🌺",
     description: "Create beautiful Hawaii-themed artwork with brushes, stickers, and more!",
     url: "https://hawaii.nova-wren.fun",
+    event: "game-hawaii-collage",
     color: "#ff6b9d",
     bgGradient: "linear-gradient(135deg, #ff6b9d 0%, #ffa726 100%)"
   },
@@ -16,6 +18,7 @@ const projects = [
     emoji: "🎯",
     description: "A fun target shooting game at the market! Hit targets, avoid bombs, get high scores!",
     url: "https://target.nova-wren.fun",
+    event: "game-target-market",
     color: "#4ecdc4",
     bgGradient: "linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%)"
   },
@@ -25,6 +28,7 @@ const projects = [
     emoji: "🧩",
     description: "Solve 102 riddles and puzzles! Test your brain with typing and multiple choice challenges!",
     url: "https://games.nova-wren.fun?game=puzzle",
+    event: "game-puzzle",
     color: "#11998e",
     bgGradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
   },
@@ -34,6 +38,7 @@ const projects = [
     emoji: "⚡",
     description: "Test your speed! Wait for green, then click as fast as you can. 5 rounds, beat your best time!",
     url: "https://reaction-game-ahy.pages.dev",
+    event: "game-reaction-test",
     color: "#ffd700",
     bgGradient: "linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%)"
   }
@@ -66,6 +71,7 @@ function App() {
 function ProjectCard({ project }) {
   const handleClick = () => {
     if (project.url) {
+      count(project.event)
       window.location.href = project.url
     }
   }
