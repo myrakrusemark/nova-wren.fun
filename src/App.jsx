@@ -41,6 +41,16 @@ const projects = [
     event: "game-reaction-test",
     color: "#ffd700",
     bgGradient: "linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%)"
+  },
+  {
+    id: 5,
+    title: "NOVAR's Pancake Factory",
+    emoji: "🥞",
+    description: "Cook, stack and top pancakes for hungry animal customers in a cozy 3D café!",
+    url: "/pancakes.html",
+    event: "game-pancake-factory",
+    color: "#f08a3c",
+    bgGradient: "linear-gradient(135deg, #f6b26b 0%, #e2683c 100%)"
   }
 ]
 
