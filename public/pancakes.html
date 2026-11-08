@@ -1903,11 +1903,16 @@ function newOrder() {
   if (d >= 2 && count >= 3 && pool.length > 1 && Math.random() < 0.35) { const t2 = pick(pool.filter(t => t !== t1)), a = randInt(1, count - 1); stacks[t1] = a; stacks[t2] = count - a; }
   else stacks[t1] = count;
   const avail = Object.keys(TOPPINGS).filter(unlocked);
-  const syr = shuffle(avail.filter(k => k in SYRUPS))[0];
-  let keys = shuffle(avail.filter(k => !(k in SYRUPS) || k === syr));
-  if (game.special && avail.includes(game.special) && Math.random() < 0.45) keys = [game.special, ...keys.filter(k => k !== game.special)];
-  if (kind === 'kid') keys = [...['sprinkles', 'cream'].filter(k => avail.includes(k)), ...keys.filter(k => k !== 'sprinkles' && k !== 'cream')];
-  const tops = keys.slice(0, randInt(1, Math.min(4, 2 + Math.floor((d - 1) / 2)))).map(key => ({ key, n: randInt(1, Math.min(TOPPINGS[key][4], d === 1 ? 2 : 3)) }));
+  let syrPool = shuffle(avail.filter(k => k in SYRUPS)), topPool = shuffle(avail.filter(k => !(k in SYRUPS)));
+  if (game.special && avail.includes(game.special) && Math.random() < 0.45) {
+    if (game.special in SYRUPS) syrPool = [game.special, ...syrPool.filter(k => k !== game.special)];
+    else topPool = [game.special, ...topPool.filter(k => k !== game.special)];
+  }
+  // almost everyone wants one syrup (a few want two); very rarely someone wants none
+  const rs = Math.random(), nSyr = rs < 0.05 ? 0 : rs < 0.88 ? 1 : 2;
+  // almost everyone wants at least one topping; very rarely someone wants none
+  const nTop = Math.random() < 0.05 ? 0 : randInt(1, Math.min(3, 1 + Math.floor((d + 1) / 2)));
+  const tops = [...syrPool.slice(0, nSyr), ...topPool.slice(0, nTop)].map(key => ({ key, n: randInt(1, Math.min(TOPPINGS[key][4], d === 1 ? 2 : 3)) }));
   if (d >= 2 && Math.random() < 0.35) {
     const cand = tops.filter(t => HANDFUL.includes(t.key) || t.key === 'butter');
     if (cand.length) { const t = pick(cand); t.where = t.key === 'butter' ? 'middle' : pick(['side', 'middle', 'edge']); }
