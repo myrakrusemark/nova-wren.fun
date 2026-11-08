@@ -153,6 +153,7 @@
   <div class="title"><h1>NOVAR’s Pancake Factory</h1><span id="status"></span></div>
   <div class="tools glass">
     <button id="bMusic" class="on"><span class="i">🎵</span><span class="t">Music</span></button>
+    <button id="bAmb" class="on"><span class="i">☕</span><span class="t">Café</span></button>
     <button id="bPhoto"><span class="i">📸</span><span class="t">Photo</span></button>
     <button id="bClear"><span class="i">↺</span><span class="t">Clear</span></button>
     <button id="bHelp"><span class="i">❓</span><span class="t">Help</span></button>
@@ -1481,7 +1482,7 @@ function updateSteam(dt) {
 
 /* ---------- music & sound (all generated live, no audio files) ---------- */
 const Sound = (() => {
-  let ctx = null, master, bus, rev, noise, timer = null, next = 0, step = 0, on = false, lastMel = 76;
+  let ctx = null, master, bus, sbus, abus, out, rev, noise, crackle, sizzleG = null, timer = null, next = 0, step = 0, on = false, ambOn = false, nextAmb = 0, lastMel = 76;
   const Q = 60 / 84;
   const prog = [[53, 57, 60, 64], [50, 53, 57, 60], [55, 58, 62, 65], [48, 52, 55, 58]]; // Fmaj7 Dm7 Gm7 C7
   const roots = [41, 38, 43, 36];
@@ -1489,22 +1490,30 @@ const Sound = (() => {
   function init() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
-    bus = ctx.createGain(); bus.gain.value = 1; bus.connect(master);
+    bus = ctx.createGain(); bus.gain.value = 0; bus.connect(master);   // music
+    sbus = ctx.createGain(); sbus.gain.value = 1; sbus.connect(master); // sound effects
+    abus = ctx.createGain(); abus.gain.value = 0; abus.connect(master); // café ambience
+    out = bus;
     rev = ctx.createConvolver();
     const len = ctx.sampleRate * 2.2, ir = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
-    rev.buffer = ir; const rg = ctx.createGain(); rg.gain.value = 0.3; rev.connect(rg); rg.connect(bus);
+    rev.buffer = ir; const rg = ctx.createGain(); rg.gain.value = 0.3; rev.connect(rg); rg.connect(master);
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-    // quiet café murmur
-    const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.6;
-    const ag = ctx.createGain(); ag.gain.value = 0.016;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.13; const lg = ctx.createGain(); lg.gain.value = 0.007;
-    lfo.connect(lg); lg.connect(ag.gain); lfo.start();
-    src.connect(bp); bp.connect(ag); ag.connect(bus); src.start();
+    // café murmur: a room full of soft voices that swells and settles
+    for (const [f, v, r] of [[420, 0.045, 0.11], [900, 0.03, 0.17], [1600, 0.012, 0.23]]) {
+      const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 0.9;
+      const ag = ctx.createGain(); ag.gain.value = v;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = r; const lg = ctx.createGain(); lg.gain.value = v * 0.5;
+      lfo.connect(lg); lg.connect(ag.gain); lfo.start();
+      src.connect(bp); bp.connect(ag); ag.connect(abus); src.start(0, Math.random() * 2);
+    }
+    // griddle crackle: sparse little pops for the sizzle
+    crackle = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const cd = crackle.getChannelData(0); for (let i = 0; i < cd.length; i++) cd[i] = Math.random() < 0.0016 ? (Math.random() * 2 - 1) * (0.4 + Math.random()) : (Math.random() * 2 - 1) * 0.05;
   }
-  function tone(t, freq, type, v, a, d, dest = bus, wet = true) {
+  function tone(t, freq, type, v, a, d, dest = out, wet = true) {
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.value = freq;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
@@ -1517,19 +1526,19 @@ const Sound = (() => {
     const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     o.type = 'triangle'; o.frequency.value = hz(m); f.type = 'lowpass'; f.frequency.value = 420;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.015); g.gain.exponentialRampToValueAtTime(v * 0.5, t + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
   }
   function hiss(t, v, freq, q, a, d, type = 'highpass') {
     const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     s.buffer = noise; f.type = type; f.frequency.value = freq; f.Q.value = q;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
-    s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random()); s.stop(t + a + d + 0.05);
+    s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random()); s.stop(t + a + d + 0.05);
   }
   function kick(t, v) {
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.3);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.3);
   }
   function sched(s, t) {
     const bar = Math.floor(s / 8) % 4, pos = s % 8, ch = prog[bar], root = roots[bar], nextRoot = roots[(bar + 1) % 4];
@@ -1545,33 +1554,101 @@ const Sound = (() => {
       const m = pool[Math.min(pool.length - 1, Math.floor(Math.random() * 3))]; lastMel = m; bell(t, m, 0.032);
     }
   }
-  function tick() { while (next < ctx.currentTime + 0.25) { sched(step, next); next += step % 2 === 0 ? Q * 0.62 : Q * 0.38; step++; } }
-  function start() {
-    try {
-      if (!ctx) init();
-      ctx.resume(); on = true;
-      master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(0.75, ctx.currentTime, 0.4);
-      if (!timer) { next = ctx.currentTime + 0.1; timer = setInterval(tick, 30); }
-    } catch (e) { on = false; }
+  // café ambience extras: cups clinking, spoons, a far-off espresso machine
+  function ambEvent(t) {
+    out = abus; const r = Math.random();
+    if (r < 0.45) { const m = 96 + Math.floor(Math.random() * 8); tone(t, hz(m), 'sine', 0.02, 0.002, 0.25, abus, false); tone(t, hz(m) * 2.7, 'sine', 0.008, 0.002, 0.12, abus, false); if (Math.random() < 0.5) tone(t + 0.09, hz(m + 2), 'sine', 0.012, 0.002, 0.2, abus, false); }
+    else if (r < 0.7) for (let i = 0; i < 3; i++) tone(t + i * 0.07 + Math.random() * 0.03, hz(100 + Math.random() * 4), 'triangle', 0.007, 0.002, 0.06, abus, false);
+    else if (r < 0.85) hiss(t, 0.012, 2600, 1.4, 0.3, 1.8, 'bandpass');
+    else { const p = 160 + Math.random() * 120; for (let i = 0; i < 3; i++) chat(t + i * 0.16, p * (1 + (Math.random() - 0.5) * 0.3), 0.004, abus); }
+    out = bus;
   }
-  function stop() {
-    if (!ctx) return; on = false;
-    master.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
-    setTimeout(() => { if (!on && timer) { clearInterval(timer); timer = null; } }, 700);
+  function chat(t, p, v, dest) {
+    const o = ctx.createOscillator(), f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(p, t); o.frequency.linearRampToValueAtTime(p * (0.85 + Math.random() * 0.3), t + 0.14);
+    f1.type = 'bandpass'; f1.frequency.value = 500 + Math.random() * 300; f1.Q.value = 6; f2.type = 'bandpass'; f2.frequency.value = 1300 + Math.random() * 700; f2.Q.value = 7;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+    o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.2);
+  }
+  function tick() {
+    if (on && next < ctx.currentTime) next = ctx.currentTime + 0.05; // fell behind (busy device): skip ahead instead of playing silent notes
+    if (on) while (next < ctx.currentTime + 0.25) { out = bus; sched(step, next); next += step % 2 === 0 ? Q * 0.62 : Q * 0.38; step++; }
+    if (ambOn && ctx.currentTime > nextAmb) { ambEvent(ctx.currentTime + 0.05); nextAmb = ctx.currentTime + 1.5 + Math.random() * 4; }
+  }
+  function fade(p, v, tc) { const t = ctx.currentTime; p.cancelScheduledValues(0); p.setValueAtTime(p.value, t); p.linearRampToValueAtTime(v, t + tc * 3); }
+  function boot() { if (!ctx) init(); ctx.resume(); fade(master.gain, 0.75, 0.3); if (!timer) { next = ctx.currentTime + 0.1; timer = setInterval(tick, 30); } }
+  function start() { try { boot(); on = true; next = Math.max(next, ctx.currentTime + 0.1); fade(bus.gain, 1, 0.4); } catch (e) { on = false; } }
+  function stop() { if (!ctx) return; on = false; fade(bus.gain, 0, 0.15); }
+  function ambStart() { try { boot(); ambOn = true; fade(abus.gain, 1, 0.6); } catch (e) { ambOn = false; } }
+  function ambStop() { if (!ctx) return; ambOn = false; fade(abus.gain, 0, 0.2); }
+  // a little voice for each customer: hi, yay, mmm, hmm, aww
+  function voice(kind, p = 260) {
+    if (!ctx || !(on || ambOn)) return;
+    const t = ctx.currentTime + 0.05;
+    const V = { hi: [[p * 1.1, p * 1.35, 0.12, 650, 1800, 0.04], [p * 1.3, p * 1.05, 0.22, 450, 2200, 0.045]],
+      yay: [[p * 1.2, p * 1.6, 0.32, 760, 1500, 0.05], [p * 1.6, p * 1.5, 0.18, 420, 2300, 0.035]],
+      mmm: [[p * 0.95, p * 1.15, 0.22, 280, 900, 0.05], [p * 1.15, p * 0.95, 0.3, 280, 900, 0.045]],
+      hmm: [[p, p * 1.15, 0.18, 300, 950, 0.04], [p * 1.1, p * 0.9, 0.28, 300, 950, 0.035]],
+      aww: [[p * 1.25, p * 0.85, 0.5, 750, 1100, 0.045]] }[kind];
+    let at = t;
+    for (const [p0, p1, d, F1, F2, v] of V) {
+      const o = ctx.createOscillator(), f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(), g = ctx.createGain(), vib = ctx.createOscillator(), vg = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(p0, at); o.frequency.exponentialRampToValueAtTime(p1, at + d);
+      vib.frequency.value = 6; vg.gain.value = p0 * 0.02; vib.connect(vg); vg.connect(o.frequency);
+      f1.type = 'bandpass'; f1.frequency.value = F1; f1.Q.value = 5; f2.type = 'bandpass'; f2.frequency.value = F2; f2.Q.value = 8;
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(v, at + 0.03); g.gain.setValueAtTime(v, at + d - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, at + d);
+      o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(sbus); g.connect(rev);
+      o.start(at); vib.start(at); o.stop(at + d + 0.05); vib.stop(at + d + 0.05); at += d * 0.92;
+    }
+  }
+  // griddle sizzle: fades in while a pancake is cooking
+  function sizzle(want) {
+    if (!ctx) return;
+    if (want && !sizzleG) {
+      const s1 = ctx.createBufferSource(); s1.buffer = noise; s1.loop = true; const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = 3500;
+      const s2 = ctx.createBufferSource(); s2.buffer = crackle; s2.loop = true; const b2 = ctx.createBiquadFilter(); b2.type = 'bandpass'; b2.frequency.value = 2400; b2.Q.value = 0.8;
+      const g = ctx.createGain(); g.gain.value = 0.0001; const g1 = ctx.createGain(); g1.gain.value = 0.035; const g2 = ctx.createGain(); g2.gain.value = 0.5;
+      s1.connect(h); h.connect(g1); g1.connect(g); s2.connect(b2); b2.connect(g2); g2.connect(g); g.connect(sbus);
+      s1.start(); s2.start(0, Math.random()); g.gain.setTargetAtTime(1, ctx.currentTime, 0.15);
+      sizzleG = { g, s1, s2 };
+    } else if (!want && sizzleG) {
+      const z = sizzleG; sizzleG = null; z.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.12);
+      setTimeout(() => { z.s1.stop(); z.s2.stop(); z.g.disconnect(); }, 800);
+    }
   }
   function sfx(kind) {
-    if (!ctx || !on) return;
-    const t = ctx.currentTime;
+    if (!ctx || !(on || ambOn)) return;
+    const t = ctx.currentTime; out = sbus;
     if (kind === 'plop') { kick(t, 0.35); hiss(t, 0.05, 900, 0.8, 0.005, 0.08, 'lowpass'); }
-    if (kind === 'pop') tone(t, 660, 'sine', 0.08, 0.005, 0.12, bus, false);
-    if (kind === 'pour') hiss(t, 0.05, 500, 1.2, 0.2, 1.4, 'bandpass');
-    if (kind === 'blend') { hiss(t, 0.08, 320, 0.7, 0.08, 1.4, 'lowpass'); tone(t, 92, 'sawtooth', 0.02, 0.08, 1.3, bus, false); }
+    if (kind === 'pop') tone(t, 660, 'sine', 0.08, 0.005, 0.12, sbus, false);
+    if (kind === 'pour') { hiss(t, 0.05, 500, 1.2, 0.2, 1.4, 'bandpass'); for (let i = 0; i < 7; i++) tone(t + 0.15 + i * 0.17 + Math.random() * 0.05, 300 + Math.random() * 250, 'sine', 0.02, 0.005, 0.05, sbus, false); }
+    if (kind === 'blend') { // motor whirring up, grinding, and winding down
+      const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), w = ctx.createOscillator(), wg = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(40, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.3); o.frequency.setValueAtTime(150, t + 1.2); o.frequency.exponentialRampToValueAtTime(50, t + 1.6);
+      w.frequency.value = 9; wg.gain.value = 8; w.connect(wg); wg.connect(o.frequency);
+      f.type = 'lowpass'; f.frequency.value = 900; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.2); g.gain.setValueAtTime(0.05, t + 1.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.65);
+      o.connect(f); f.connect(g); g.connect(sbus); o.start(t); w.start(t); o.stop(t + 1.7); w.stop(t + 1.7);
+      hiss(t + 0.1, 0.06, 700, 0.6, 0.1, 1.3, 'bandpass');
+    }
+    if (kind === 'espresso') { // pump hum, then the shot trickling out
+      tone(t, 58, 'square', 0.02, 0.05, 1.0, sbus, false); tone(t, 116, 'sawtooth', 0.008, 0.05, 1.0, sbus, false);
+      hiss(t + 0.15, 0.03, 1200, 1.5, 0.2, 0.9, 'bandpass');
+      for (let i = 0; i < 6; i++) tone(t + 0.35 + i * 0.13, 500 + Math.random() * 300, 'sine', 0.015, 0.004, 0.05, sbus, false);
+    }
+    if (kind === 'steam') { // steam wand: loud hiss with a gurgle
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain();
+      s.buffer = noise; f.type = 'bandpass'; f.frequency.value = 3200; f.Q.value = 0.7; l.frequency.value = 7; lg.gain.value = 900; l.connect(lg); lg.connect(f.frequency);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.08); g.gain.setValueAtTime(0.06, t + 1.0); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
+      s.connect(f); f.connect(g); g.connect(sbus); s.start(t, Math.random()); l.start(t); s.stop(t + 1.35); l.stop(t + 1.35);
+    }
+    if (kind === 'clink') { tone(t, hz(98), 'sine', 0.05, 0.002, 0.4, sbus, true); tone(t, hz(98) * 2.76, 'sine', 0.015, 0.002, 0.15, sbus, false); }
     if (kind === 'ding') [84, 88, 91, 96].forEach((m, i) => bell(t + i * 0.09, m, 0.09));
     if (kind === 'meh') [79, 76].forEach((m, i) => bell(t + i * 0.15, m, 0.08));
-    if (kind === 'buzz') tone(t, 110, 'sawtooth', 0.05, 0.01, 0.35, bus, false);
-    if (kind === 'trash') { hiss(t, 0.12, 1400, 0.8, 0.01, 0.22, 'bandpass'); tone(t + 0.05, 180, 'square', 0.04, 0.005, 0.12, bus, false); }
+    if (kind === 'buzz') tone(t, 110, 'sawtooth', 0.05, 0.01, 0.35, sbus, false);
+    if (kind === 'trash') { hiss(t, 0.12, 1400, 0.8, 0.01, 0.22, 'bandpass'); tone(t + 0.05, 180, 'square', 0.04, 0.005, 0.12, sbus, false); }
+    out = bus;
   }
-  return { start, stop, sfx, get on() { return on; } };
+  return { start, stop, ambStart, ambStop, sfx, voice, sizzle, get on() { return on; }, get amb() { return ambOn; } };
 })();
 
 function disposeTree(o) {
@@ -2537,7 +2614,7 @@ function makeDrink(key) {
   scene.add(g);
   // little pop-in
   let t = 0; g.scale.setScalar(0.01); anims.push(dt => { t += dt; const k = Math.min(1, t / 0.35); g.scale.setScalar(1 + Math.sin(k * Math.PI) * 0.08 - (1 - k) * 0.99 * (1 - k)); if (k >= 1) { g.scale.setScalar(1); return false; } });
-  Sound.sfx('plop');
+  Sound.sfx('clink');
   return d;
 }
 function removeDrink() {
@@ -2548,10 +2625,10 @@ function removeDrink() {
   drink = null; renderDrinkPanel(); refreshUI();
 }
 // pour a stream into the cup and raise the level to `to`
-function pourInto(d, to, col, secs = 1.2, then, streamCol = col) {
+function pourInto(d, to, col, secs = 1.2, then, streamCol = col, snd = 'pour') {
   const from = d.f, c0 = d.col.clone(), c1 = new THREE.Color(col);
   const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1, 12, 1, true), new THREE.MeshPhysicalMaterial({ color: streamCol, roughness: 0.15, clearcoat: 1 }));
-  d.inner.add(stream); d.busy++; Sound.sfx('pour'); refreshUI();
+  d.inner.add(stream); d.busy++; Sound.sfx(snd); refreshUI();
   let t = 0;
   anims.push(dt => {
     t += dt; const k = Math.min(1, t / secs), e = k * (2 - k);
@@ -2650,9 +2727,9 @@ function startDrink(key) {
 }
 const ESPRESSO = 0x2a1509, LATTE = 0xb07a4c;
 const DRINK_ACTS = {
-  shot: d => { if (d.shots >= 3) return; d.shots++; d.done = true; if (d.shots === 1) stat(s => s.drinks++); pourInto(d, Math.min(0.95, d.f + 0.16), d.milk ? 0x9a6438 : ESPRESSO, 0.9, null, ESPRESSO); },
-  steam: d => { if (d.milk) return; d.milk = true; pourInto(d, Math.min(0.86, d.f + 0.5), d.shots ? LATTE : 0xf4ece0, 1.3, null, 0xf7f1e6); },
-  foam: d => { if (d.foam) return; d.foam = true; pourInto(d, Math.min(0.97, d.f + 0.13), d.col.getHex(), 0.7, null, 0xfbf7f0); },
+  shot: d => { if (d.shots >= 3) return; d.shots++; d.done = true; if (d.shots === 1) stat(s => s.drinks++); pourInto(d, Math.min(0.95, d.f + 0.16), d.milk ? 0x9a6438 : ESPRESSO, 0.9, null, ESPRESSO, 'espresso'); },
+  steam: d => { if (d.milk) return; d.milk = true; pourInto(d, Math.min(0.86, d.f + 0.5), d.shots ? LATTE : 0xf4ece0, 1.3, null, 0xf7f1e6, 'steam'); },
+  foam: d => { if (d.foam) return; d.foam = true; pourInto(d, Math.min(0.97, d.f + 0.13), d.col.getHex(), 0.7, null, 0xfbf7f0, 'steam'); },
   art: d => { if (d.art) return; if (!d.milk && !d.foam) { toast('Add steamed milk or foam first to draw latte art! 🥛', 2000); return; } if (!d.shots) { toast('Latte art needs an espresso shot first! ☕', 2000); return; } d.art = true; drawSurface(d); Sound.sfx('pop'); burst('🤍', new THREE.Vector3(DRINK_POS.x, 1.3, DRINK_POS.z), 3, { size: 0.3 }); },
   scoop: (d, fl) => {
     if (d.blended) { toast('It’s already blended! Start a new drink for more scoops.', 2000); return; }
@@ -3064,11 +3141,12 @@ function setMood(e) {
   cust.hop = Math.max(cust.hop, 0.35);
 }
 function customerArrive(e) {
+  cust.pitch = rand(210, 360); setTimeout(() => Sound.voice('hi', cust.pitch), 700);
   const old = cust.sprite.material.map; cust.sprite.material.map = emojiTexture(e); cust.sprite.material.needsUpdate = true; old.dispose();
   cust.state = 'in'; cust.off = 9; cust.t = 0; cust.mood = ''; setMood('👋');
   later(1.6, () => { if (cust.state === 'in' && cust.mood === '👋') setMood('😊'); });
 }
-function customerReact(stars) { setMood(['😠', '😕', '😊', '😍'][stars]); cust.hop = 1; if (stars >= 2) burst(stars === 3 ? '💖' : '✨', cust.sprite.position, stars === 3 ? 10 : 5); }
+function customerReact(stars) { setTimeout(() => Sound.voice(['aww', 'hmm', 'mmm', 'yay'][stars], cust.pitch || 260), 350); setMood(['😠', '😕', '😊', '😍'][stars]); cust.hop = 1; if (stars >= 2) burst(stars === 3 ? '💖' : '✨', cust.sprite.position, stars === 3 ? 10 : 5); }
 function customerLeave() { cust.state = 'out'; }
 function updateCustomer(dt) {
   const on = game.mode === 'shift' && cust.state !== 'away';
@@ -3487,6 +3565,7 @@ function showStart() {
     const switched = mode !== game.mode || !game.started;
     game.mode = mode; game.diff = diff; game.freeHoliday = party; save();
     if (musicWanted && !Sound.on) { Sound.start(); syncMusicBtn(); }
+    if (ambWanted && !Sound.amb) { Sound.ambStart(); syncAmbBtn(); }
     if (switched) {
       cancelCook(); clearPlate(); game.order = null; $('ticket').hidden = true; cust.state = 'away';
       game.started = true;
@@ -3638,9 +3717,14 @@ $('bPhoto').onclick = takePhoto;
 $('bMenu').onclick = () => showStart();
 $('bHelp').onclick = showHelp;
 $('bDonate').onclick = showDonate;
-let musicWanted = true;
+let musicWanted = true, ambWanted = true;
+try { musicWanted = localStorage.getItem('pancakeMusic') !== '0'; ambWanted = localStorage.getItem('pancakeAmb') !== '0'; } catch (e) {}
+if (!musicWanted) { $('bMusic').classList.remove('on'); $('bMusic').querySelector('.i').textContent = '🔇'; }
+if (!ambWanted) { $('bAmb').classList.remove('on'); $('bAmb').querySelector('.i').textContent = '🔈'; }
 const syncMusicBtn = () => { $('bMusic').classList.toggle('on', Sound.on); $('bMusic').querySelector('.i').textContent = Sound.on ? '🎵' : '🔇'; };
-$('bMusic').onclick = () => { if (Sound.on) Sound.stop(); else Sound.start(); musicWanted = Sound.on; syncMusicBtn(); };
+$('bMusic').onclick = () => { if (Sound.on) Sound.stop(); else Sound.start(); musicWanted = Sound.on; syncMusicBtn(); try { localStorage.setItem('pancakeMusic', musicWanted ? '1' : '0'); } catch (e) {} };
+const syncAmbBtn = () => { $('bAmb').classList.toggle('on', Sound.amb); $('bAmb').querySelector('.i').textContent = Sound.amb ? '☕' : '🔈'; $('bAmb').title = Sound.amb ? 'Café sounds on' : 'Café sounds off'; };
+$('bAmb').onclick = () => { if (Sound.amb) Sound.ambStop(); else Sound.ambStart(); ambWanted = Sound.amb; syncAmbBtn(); try { localStorage.setItem('pancakeAmb', ambWanted ? '1' : '0'); } catch (e) {} };
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 /* ---------- loop ---------- */
@@ -3663,6 +3747,7 @@ function frame() {
   updateSteam(dt);
   updateFloaties(dt);
   updateHoliday(rdt); updateDrink(rdt);
+  Sound.sizzle(!!cook.P && cook.stage !== 'idle');
   updatePatience(rdt);
   // look at the griddle while cooking, otherwise at the stack
   const cooking = cook.P && cook.stage !== 'idle', mixing = !cooking && drink && curTab === 'drinks';
