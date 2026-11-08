@@ -136,6 +136,8 @@
   .themes{display:flex;gap:10px;justify-content:center;margin:8px 0}
   .themes button{width:42px;height:42px;min-width:0;border-radius:50%;padding:0;border:3px solid #fff;box-shadow:0 0 0 1.5px #e3d3bd}
   .themes button.sel{box-shadow:0 0 0 3px #f08a3c}
+  .dkNote{align-self:center;padding:0 10px 0 8px;font-size:13px;font-weight:600;color:#5a4030}
+  @media (max-width:460px){#tabs button{padding:6px 7px;font-size:12px;gap:3px}}
   @media (max-width:430px){h1{font-size:16px;max-width:38vw;line-height:1.15}#status{font-size:11.5px;max-width:42vw}header .tools button{min-width:35px;padding:7px 2px}header .tools .t{display:none}header .tools .i{font-size:19px;height:20px}#ticket{width:170px;font-size:12px;padding:9px 10px 11px}.tk-head .av{font-size:26px}}
 </style>
 <script type="importmap">
@@ -170,9 +172,10 @@
 </div>
 <div id="binTag" hidden></div>
 <div id="dock">
-  <div id="tabs" class="glass"><button class="tab on" data-tab="pancakes">🥞 Pancakes</button><button class="tab" data-tab="syrups">🍯 Syrups</button><button class="tab" data-tab="toppings">🍓 Toppings</button></div>
+  <div id="tabs" class="glass"><button class="tab on" data-tab="pancakes">🥞 Pancakes</button><button class="tab" data-tab="syrups">🍯 Syrups</button><button class="tab" data-tab="toppings">🍓 Toppings</button><button class="tab" data-tab="drinks">🥤 Drinks</button></div>
   <div id="barwrap">
     <div class="bar glass" id="panelPancakes"></div>
+    <div class="bar glass" id="panelDrinks" hidden></div>
     <div class="bar glass" id="panelSyrups" hidden>
       <button data-syrup="maple"><svg class="i" width="22" height="22" viewBox="0 0 22 22"><path d="M11 2C11 2 4.5 10 4.5 14a6.5 6.5 0 0 0 13 0C17.5 10 11 2 11 2z" fill="#b85a16"/><ellipse cx="8.6" cy="13" rx="1.5" ry="2.4" fill="#fff" opacity=".45"/></svg>Maple</button>
       <button data-syrup="honey"><svg class="i" width="22" height="22" viewBox="0 0 22 22"><path d="M11 2C11 2 4.5 10 4.5 14a6.5 6.5 0 0 0 13 0C17.5 10 11 2 11 2z" fill="#eeb02c"/><ellipse cx="8.6" cy="13" rx="1.5" ry="2.4" fill="#fff" opacity=".45"/></svg>Honey</button>
@@ -711,7 +714,7 @@ function buildProps() {
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     const coffee = new THREE.Mesh(new THREE.CircleGeometry(0.47, 48), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.25, clearcoat: 0.6 }));
     coffee.rotation.x = -Math.PI / 2; coffee.position.y = 0.93; mug.add(coffee);
-    mug.position.set(3.35, 0, -2.0); mug.rotation.y = -0.6; scene.add(shadow(mug));
+    mug.position.set(2.0, 0, -3.3); mug.rotation.y = -1.2; scene.add(shadow(mug));
   }
   // glass syrup dispenser
   { const jar = new THREE.Group();
@@ -1562,6 +1565,7 @@ const Sound = (() => {
     if (kind === 'plop') { kick(t, 0.35); hiss(t, 0.05, 900, 0.8, 0.005, 0.08, 'lowpass'); }
     if (kind === 'pop') tone(t, 660, 'sine', 0.08, 0.005, 0.12, bus, false);
     if (kind === 'pour') hiss(t, 0.05, 500, 1.2, 0.2, 1.4, 'bandpass');
+    if (kind === 'blend') { hiss(t, 0.08, 320, 0.7, 0.08, 1.4, 'lowpass'); tone(t, 92, 'sawtooth', 0.02, 0.08, 1.3, bus, false); }
     if (kind === 'ding') [84, 88, 91, 96].forEach((m, i) => bell(t + i * 0.09, m, 0.09));
     if (kind === 'meh') [79, 76].forEach((m, i) => bell(t + i * 0.15, m, 0.08));
     if (kind === 'buzz') tone(t, 110, 'sawtooth', 0.05, 0.01, 0.35, bus, false);
@@ -1782,7 +1786,7 @@ function unhighlight(rec) {
 function pickAt(px, py) {
   raycaster.setFromCamera(new THREE.Vector2(px / innerWidth * 2 - 1, -(py / innerHeight) * 2 + 1), camera);
   let rec = null;
-  for (const h of raycaster.intersectObjects(pancakes.map(P => P.group), true)) {
+  for (const h of raycaster.intersectObjects([...pancakes.map(P => P.group), ...(drink ? [drink.g] : [])], true)) {
     let o = h.object; while (o && !o.userData.del) o = o.parent;
     if (o) { rec = o.userData.del; break; }
   }
@@ -2424,6 +2428,355 @@ function drawHolidayDecor(x, X, Y, sx, sy, L, winC, gap, holiday) {
   }
 }
 
+/* ---------- drinks: coffee & milkshakes you build, the rest pour with a tap ---------- */
+const DRINK_POS = new THREE.Vector3(3.05, 0, -0.55);
+const SHAKE = {
+  vanilla: { e: '🍨', name: 'Vanilla', col: 0xf6ead0 },
+  chocolate: { e: '🍫', name: 'Chocolate', col: 0x6e3c22 },
+  strawberry: { e: '🍓', name: 'Strawberry', col: 0xf2a0b4 },
+};
+const DRINKS = {
+  coffee: { e: '☕', name: 'Coffee', cup: 'mug', build: true, hot: true },
+  shake: { e: '🥤', name: 'Milkshake', cup: 'tall', build: true },
+  milk: { e: '🥛', name: 'Glass of milk', short: 'Milk', cup: 'glass', col: 0xf7f4ee },
+  oj: { e: '🍊', name: 'Orange juice', short: 'Orange juice', cup: 'glass', col: 0xf28a10, garnish: ['orange'] },
+  cocoa: { e: '🍫', name: 'Hot chocolate', short: 'Hot chocolate', cup: 'mug', col: 0x5c2f19, garnish: ['marsh'], hot: true },
+  pumpkinlatte: { e: '🎃', name: 'Pumpkin spice latte', short: 'Pumpkin latte', cup: 'mug', col: 0xc47a3e, garnish: ['cream', 'cinnamon'], hot: true, holiday: 'halloween' },
+  peppermint: { e: '🍬', name: 'Peppermint cocoa', short: 'Peppermint cocoa', cup: 'mug', col: 0x5c2f19, garnish: ['marsh', 'candycane'], hot: true, holiday: 'winter' },
+  bluecocoa: { e: '💙', name: 'Blue marshmallow cocoa', short: 'Blue cocoa', cup: 'mug', col: 0x5c2f19, garnish: ['marshblue'], hot: true, holiday: 'hanukkah' },
+  pinkmilk: { e: '💗', name: 'Pink strawberry milk', short: 'Strawberry milk', cup: 'glass', col: 0xffb8c9, garnish: ['strawpink'], holiday: 'valentine' },
+  mintshake: { e: '🍀', name: 'Lucky mint shake', short: 'Mint shake', cup: 'tall', col: 0xa6e3ae, garnish: ['cream', 'cherry', 'straw'], holiday: 'stpatrick' },
+  pinklemonade: { e: '🌸', name: 'Pink lemonade', short: 'Pink lemonade', cup: 'glass', col: 0xffc4cf, garnish: ['ice', 'lemon'], holiday: 'spring' },
+  berrylemonade: { e: '🎆', name: 'Berry blast lemonade', short: 'Berry lemonade', cup: 'glass', col: 0xe23a52, garnish: ['ice', 'lemon'], holiday: 'fireworks' },
+};
+const holidayDrink = () => curHoliday && Object.keys(DRINKS).find(k => DRINKS[k].holiday === curHoliday);
+const SIMPLE = () => ['milk', 'oj', 'cocoa', ...(holidayDrink() ? [holidayDrink()] : [])];
+const lerpN = (pts, y) => { if (y <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (y <= pts[i][0]) { const [a, ra] = pts[i - 1], [b, rb] = pts[i]; return ra + (rb - ra) * (y - a) / (b - a); } return pts[pts.length - 1][1]; };
+const CUPS = {
+  mug: { y0: 0.215, y1: 1.03, inner: y => lerpN([[0.215, 0.29], [0.3, 0.46], [1.0, 0.478]], y) },
+  tall: { y0: 0.3, y1: 1.4, inner: y => lerpN([[0.3, 0.04], [0.33, 0.12], [0.43, 0.2], [1.0, 0.272], [1.45, 0.312]], y) },
+  glass: { y0: 0.085, y1: 0.98, inner: y => 0.262 + (y - 0.085) * 0.07 },
+};
+let drink = null;
+const glassMat = () => new THREE.MeshPhysicalMaterial({ color: 0xf2fbff, roughness: 0.03, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
+function buildCup(kind) {
+  const g = new THREE.Group();
+  if (kind === 'mug') {
+    const cer = new THREE.MeshPhysicalMaterial({ color: 0xf8f4ec, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.05 });
+    const saucer = new THREE.Mesh(lathe([[0, 0.006], [0.42, 0.006], [0.52, 0.02], [0.72, 0.06], [0.74, 0.075], [0.71, 0.075], [0.5, 0.042], [0.4, 0.035], [0, 0.03]], 56), cer); g.add(saucer);
+    const m = new THREE.Group(); m.position.y = 0.035;
+    m.add(new THREE.Mesh(lathe([[0, 0], [0.38, 0], [0.44, 0.03], [0.48, 0.14], [0.5, 0.98], [0.515, 1.04], [0.497, 1.07], [0.478, 1.04], [0.46, 0.3], [0.29, 0.215], [0, 0.205]], 56), cer));
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 16, 40, Math.PI), cer); handle.rotation.z = -Math.PI / 2; handle.position.set(0.48, 0.56, 0); m.add(handle);
+    const sp = new THREE.Group(); sp.position.set(0.12, 0.07, 0.6); sp.rotation.y = -0.4;
+    const steel = new THREE.MeshStandardMaterial({ color: 0xdfe2e6, metalness: 1, roughness: 0.2 });
+    const sh = new THREE.Mesh(new RoundedBoxGeometry(0.07, 0.02, 0.5, 2, 0.009), steel); sh.position.z = 0.1; sp.add(sh);
+    const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), steel); bowl.scale.set(0.9, 0.3, 1.3); bowl.position.set(0, 0.02, -0.2); sp.add(bowl);
+    g.add(sp); g.add(m); g.userData.lift = 0.035;
+  } else if (kind === 'tall') {
+    g.add(new THREE.Mesh(lathe(HD.smoothProf([[0, 0], [0.28, 0], [0.29, 0.025], [0.12, 0.06], [0.06, 0.12], [0.06, 0.24], [0.15, 0.3], [0.24, 0.42], [0.3, 1.0], [0.335, 1.45], [0.345, 1.47]], 50), 56), glassMat()));
+    g.userData.lift = 0;
+  } else {
+    g.add(new THREE.Mesh(lathe([[0, 0], [0.27, 0], [0.285, 0.02], [0.345, 1.03], [0.352, 1.05]], 56), glassMat()));
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.262, 0.27, 0.08, 40), new THREE.MeshPhysicalMaterial({ color: 0xeaf6ff, roughness: 0.04, transparent: true, opacity: 0.35, depthWrite: false })); base.position.y = 0.045; g.add(base);
+    g.userData.lift = 0;
+  }
+  return g;
+}
+const liquidTexCanvas = () => canvasPair(256);
+function drawSurface(d) {
+  const [c, x] = d.surf, col = '#' + d.col.getHexString();
+  x.clearRect(0, 0, 256, 256); x.fillStyle = col; x.fillRect(0, 0, 256, 256);
+  if (d.key === 'coffee' && d.shots && !d.milk && !d.foam) { // crema
+    const g = x.createRadialGradient(128, 128, 20, 128, 128, 128); g.addColorStop(0, '#c58a4c'); g.addColorStop(0.7, '#a2662e'); g.addColorStop(1, '#5a3014'); x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    x.filter = 'blur(2px)'; for (let i = 0; i < 60; i++) { x.fillStyle = `rgba(${rand(90, 140)},${rand(50, 80)},20,0.35)`; x.beginPath(); x.arc(rand(0, 256), rand(0, 256), rand(3, 10), 0, 7); x.fill(); } x.filter = 'none';
+  }
+  if (d.foam || d.art) {
+    const g = x.createRadialGradient(128, 128, 30, 128, 128, 128); g.addColorStop(0, d.art ? '#9c6034' : '#fffaf2'); g.addColorStop(0.82, d.art ? '#8a5228' : '#f6ead8'); g.addColorStop(1, '#b08050'); x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    if (!d.art) { x.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 90; i++) { x.beginPath(); x.arc(rand(30, 226), rand(30, 226), rand(1, 3.5), 0, 7); x.fill(); } }
+  }
+  if (d.art) {
+    x.fillStyle = '#fff8ec'; x.filter = 'blur(1px)'; x.beginPath(); x.moveTo(128, 200);
+    x.bezierCurveTo(30, 136, 56, 44, 128, 92); x.bezierCurveTo(200, 44, 226, 136, 128, 200); x.fill();
+    x.strokeStyle = '#8c5428'; x.lineWidth = 3; x.beginPath(); x.moveTo(128, 70); x.lineTo(128, 200); x.stroke(); x.filter = 'none';
+  } else if (d.key === 'coffee' && d.milk && !d.foam) {
+    x.strokeStyle = 'rgba(255,240,220,0.5)'; x.lineWidth = 6; x.filter = 'blur(3px)'; x.beginPath(); for (let a = 0; a < 18; a += 0.2) x.lineTo(128 + Math.cos(a) * a * 5.5, 128 + Math.sin(a) * a * 5.5); x.stroke(); x.filter = 'none';
+  }
+  if (d.key === 'shake' && d.blended) { x.fillStyle = 'rgba(255,255,255,0.18)'; for (let i = 0; i < 40; i++) { x.beginPath(); x.arc(rand(0, 256), rand(0, 256), rand(2, 6), 0, 7); x.fill(); } }
+  d.surfTex.needsUpdate = true;
+}
+function setLevel(d, f) {
+  d.f = Math.max(0, Math.min(1, f));
+  const C = CUPS[d.cup], top = C.y0 + 0.012 + d.f * (C.y1 - C.y0);
+  d.liq.visible = d.disc.visible = d.f > 0.004;
+  if (!d.liq.visible) return;
+  const pts = [new THREE.Vector2(0.001, C.y0)];
+  for (let i = 0; i <= 14; i++) { const y = C.y0 + (top - C.y0) * i / 14; pts.push(new THREE.Vector2(C.inner(y) * 0.985, y)); }
+  d.liq.geometry.dispose(); d.liq.geometry = new THREE.LatheGeometry(pts, 48); d.liq.geometry.computeVertexNormals();
+  d.disc.position.y = top; d.disc.scale.setScalar(C.inner(top) * 0.985);
+  d.top = top;
+}
+function setColor(d, col) { d.col.set(col); d.liq.material.color.copy(d.col); drawSurface(d); }
+function makeDrink(key) {
+  const D = DRINKS[key], g = new THREE.Group(), cup = buildCup(D.cup); g.add(cup);
+  const inner = new THREE.Group(); inner.position.y = cup.userData.lift; g.add(inner);
+  const surf = canvasPair(256), surfTex = HD.tex(surf[0]);
+  const liqMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.22, clearcoat: 0.6, clearcoatRoughness: 0.1, sheen: 0.3 });
+  const liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshPhysicalMaterial({ map: surfTex, roughness: 0.2, clearcoat: 0.8, clearcoatRoughness: 0.08 }));
+  disc.rotation.x = -Math.PI / 2; inner.add(liq, disc);
+  const d = { key, cup: D.cup, g, inner, liq, disc, surf, surfTex, col: new THREE.Color(0xffffff), f: 0, top: 0, busy: 0, done: false,
+    shots: 0, milk: false, foam: false, art: false, scoops: [], scoopMeshes: [], blended: false, cream: false, cherry: false, sprinkles: false, straw: false, extras: [] };
+  setLevel(d, 0);
+  g.position.copy(DRINK_POS); g.rotation.y = -0.5;
+  g.userData.del = { name: D.short || D.name, objs: () => [g], remove: () => removeDrink() };
+  g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  if (D.hot) {
+    d.steam = [];
+    for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, transparent: true, depthWrite: false, opacity: 0, color: 0xfff8f0 })); s.userData = { age: i * 0.6, life: 3.4 }; inner.add(s); d.steam.push(s); }
+  }
+  scene.add(g);
+  // little pop-in
+  let t = 0; g.scale.setScalar(0.01); anims.push(dt => { t += dt; const k = Math.min(1, t / 0.35); g.scale.setScalar(1 + Math.sin(k * Math.PI) * 0.08 - (1 - k) * 0.99 * (1 - k)); if (k >= 1) { g.scale.setScalar(1); return false; } });
+  Sound.sfx('plop');
+  return d;
+}
+function removeDrink() {
+  if (!drink) return;
+  scene.remove(drink.g);
+  const shared = new Set([creamGeo, creamMat, sprinkleGeo, sprinkleMat, steamTex]);
+  drink.g.traverse(o => { if (o.geometry && !shared.has(o.geometry)) o.geometry.dispose(); for (const m of [].concat(o.material || [])) { if (shared.has(m)) continue; if (m.map && !shared.has(m.map)) m.map.dispose(); m.dispose(); } });
+  drink = null; renderDrinkPanel(); refreshUI();
+}
+// pour a stream into the cup and raise the level to `to`
+function pourInto(d, to, col, secs = 1.2, then, streamCol = col) {
+  const from = d.f, c0 = d.col.clone(), c1 = new THREE.Color(col);
+  const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1, 12, 1, true), new THREE.MeshPhysicalMaterial({ color: streamCol, roughness: 0.15, clearcoat: 1 }));
+  d.inner.add(stream); d.busy++; Sound.sfx('pour'); refreshUI();
+  let t = 0;
+  anims.push(dt => {
+    t += dt; const k = Math.min(1, t / secs), e = k * (2 - k);
+    setLevel(d, from + (to - from) * e);
+    d.col.copy(c0).lerp(c1, from > 0.02 ? Math.min(1, k * 1.2) : 1); d.liq.material.color.copy(d.col);
+    if ((t * 10 | 0) % 2 === 0) drawSurface(d);
+    const sTop = 2.4, sBot = d.top, on = k < 0.92;
+    stream.visible = on; stream.scale.set(1 + Math.sin(t * 30) * 0.08, sTop - sBot, 1 + Math.cos(t * 26) * 0.08); stream.position.set(Math.sin(t * 9) * 0.01, (sTop + sBot) / 2, 0);
+    if (k >= 1) { d.inner.remove(stream); stream.geometry.dispose(); stream.material.dispose(); drawSurface(d); d.busy--; refreshUI(); then && then(); return false; }
+  });
+}
+function dropIn(d, obj, y, then, from = 1.6) {
+  obj.position.y = y + from; d.inner.add(obj); d.busy++; refreshUI();
+  obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  let v = 0, bounced = false;
+  anims.push(dt => {
+    v += 14 * dt; obj.position.y -= v * dt;
+    if (obj.position.y <= y) { obj.position.y = y; if (!bounced && v > 2) { v = -v * 0.25; bounced = true; Sound.sfx('plop'); } else { d.busy--; refreshUI(); then && then(); return false; } }
+  });
+}
+/* ---- garnishes ---- */
+function scoopMesh(col) {
+  const g = new THREE.SphereGeometry(0.19, 28, 18), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i), n = 1 + 0.06 * Math.sin(v.x * 40 + v.y * 23) * Math.cos(v.z * 31 - v.y * 17) + (v.y < -0.05 ? 0.05 * Math.sin(Math.atan2(v.z, v.x) * 9) : 0); v.multiplyScalar(n); p.setXYZ(i, v.x, v.y, v.z); }
+  g.computeVertexNormals();
+  return new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.75, sheen: 0.6, sheenColor: new THREE.Color(0xffffff) }));
+}
+function cherryMesh() {
+  const g = new THREE.Group();
+  const c = new THREE.Mesh(new THREE.SphereGeometry(0.075, 24, 16), new THREE.MeshPhysicalMaterial({ color: 0xb0081c, roughness: 0.08, clearcoat: 1 })); c.scale.y = 0.9; c.position.y = 0.065; g.add(c);
+  g.add(HD.tube([[0, 0.12, 0], [0.02, 0.2, 0], [0.08, 0.27, 0.01]], 0.007, HD.std(0x5a6a24, { roughness: 0.7 }), 10));
+  return g;
+}
+function strawMesh(colA, colB) {
+  const [c, x] = canvasPair(64); x.fillStyle = colA; x.fillRect(0, 0, 64, 64); x.fillStyle = colB; for (let i = -64; i < 128; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 8, 0); x.lineTo(i + 72, 64); x.lineTo(i + 64, 64); x.fill(); }
+  const t = HD.tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 10);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 1.5, 16, 1, true), new THREE.MeshPhysicalMaterial({ map: t, roughness: 0.3, clearcoat: 0.5, side: THREE.DoubleSide }));
+  const g = new THREE.Group(); m.position.y = 0.75; g.add(m); g.rotation.z = -0.28; return g;
+}
+function sliceMesh(col, rind) {
+  const [c, x] = canvasPair(128); x.fillStyle = rind; x.beginPath(); x.arc(64, 64, 64, 0, 7); x.fill(); x.fillStyle = '#fff6dc'; x.beginPath(); x.arc(64, 64, 57, 0, 7); x.fill();
+  for (let k = 0; k < 9; k++) { const a = k / 9 * 6.283; x.fillStyle = col; x.beginPath(); x.moveTo(64 + Math.cos(a + 0.08) * 6, 64 + Math.sin(a + 0.08) * 6); x.arc(64, 64, 52, a + 0.08, a + 6.283 / 9 - 0.08); x.closePath(); x.fill(); }
+  const t = HD.tex(c), mat = new THREE.MeshPhysicalMaterial({ map: t, roughness: 0.3, clearcoat: 0.6 });
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 32), [new THREE.MeshStandardMaterial({ color: rind, roughness: 0.5 }), mat, mat]);
+  m.rotation.x = Math.PI / 2; return m;
+}
+function addGarnish(d, kind) {
+  const C = CUPS[d.cup], rimR = C.inner(C.y1) + 0.02, top = d.top;
+  if (kind === 'cream') { const m = new THREE.Mesh(creamGeo, creamMat); m.scale.set(d.cup === 'mug' ? 1.45 : 1.05, 1.1, d.cup === 'mug' ? 1.45 : 1.05); dropIn(d, m, top - 0.02); d.creamTop = top + 0.33; }
+  if (kind === 'cherry') dropIn(d, cherryMesh(), (d.creamTop || top) - 0.06);
+  if (kind === 'sprinkles') {
+    const n = 90, im = new THREE.InstancedMesh(sprinkleGeo, sprinkleMat, n), o = new THREE.Object3D(), y0 = d.creamTop ? top : top;
+    for (let i = 0; i < n; i++) {
+      const r = Math.sqrt(Math.random()), a = rand(0, 6.28);
+      if (d.creamTop) { const R = 0.24 * (1 - r * 0.0); const h = rand(0, 0.3); o.position.set(Math.cos(a) * R * Math.pow(1 - h / 0.34, 0.8) * 1.05, y0 + h, Math.sin(a) * R * Math.pow(1 - h / 0.34, 0.8) * 1.05); }
+      else { const R = C.inner(top) * 0.9 * r; o.position.set(Math.cos(a) * R, y0 + 0.01, Math.sin(a) * R); }
+      o.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); o.scale.setScalar(1.6); o.updateMatrix(); im.setMatrixAt(i, o.matrix); im.setColorAt(i, SPRINKLE_COLORS[i % SPRINKLE_COLORS.length]);
+    }
+    dropIn(d, im, 0, null, 0.6);
+  }
+  if (kind === 'straw' || kind === 'strawpink') { const s = kind === 'strawpink' ? strawMesh('#ffffff', '#ff6f9c') : strawMesh('#ffffff', '#e8343f'); s.position.set(-0.1, C.y0 + 0.05, 0.02); s.rotation.z = -0.17; dropIn(d, s, C.y0 + 0.05, null, 1.0); }
+  if (kind === 'orange' || kind === 'lemon') { const s = kind === 'orange' ? sliceMesh('#f7a62a', '#ef8a12') : sliceMesh('#f7e45a', '#e9cf2a'); s.position.x = -rimR; s.rotation.z = 0.15; dropIn(d, s, C.y1 + 0.06, null, 0.8); }
+  if (kind === 'marsh' || kind === 'marshblue') {
+    for (let i = 0; i < 6; i++) {
+      const m = new THREE.Mesh(new RoundedBoxGeometry(0.12, 0.1, 0.12, 3, 0.035), new THREE.MeshPhysicalMaterial({ color: kind === 'marshblue' && i % 2 ? 0x8fb4ff : 0xfffcf6, roughness: 0.8, sheen: 0.6 }));
+      const a = i * 1.1, r = i ? 0.24 : 0; m.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); m.rotation.set(rand(-0.4, 0.4), rand(0, 6), rand(-0.4, 0.4));
+      setTimeout(() => drink === d && dropIn(d, m, top + 0.02, null, 1.0), i * 90);
+    }
+  }
+  if (kind === 'candycane') {
+    const [c, x] = canvasPair(64); x.fillStyle = '#fff'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#d81e2c'; for (let i = -64; i < 128; i += 20) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 9, 0); x.lineTo(i + 73, 64); x.lineTo(i + 64, 64); x.fill(); }
+    const t = HD.tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 1);
+    const cane = HD.tube([[0, 0.25, 0], [0, 0.9, 0], [0, 1.12, 0], [0.08, 1.21, 0], [0.17, 1.12, 0], [0.17, 1.0, 0]], 0.03, new THREE.MeshPhysicalMaterial({ map: t, roughness: 0.2, clearcoat: 1 }), 48);
+    const g = new THREE.Group(); g.add(cane); g.position.x = 0.41; dropIn(d, g, 0, null, 1.0);
+  }
+  if (kind === 'cinnamon') { const s = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.5, 10), HD.std(0x7a3e1c, { roughness: 0.9 })); s.rotation.z = 1.2; s.position.set(0.12, top + 0.25, 0.1); dropIn(d, s, top + 0.25); }
+  if (kind === 'ice') {
+    for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new RoundedBoxGeometry(0.17, 0.15, 0.17, 3, 0.03), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.08, transmission: 0.9, thickness: 0.15, ior: 1.31, transparent: true, opacity: 0.85 }));
+      m.position.set(Math.cos(i * 2.1) * 0.13, 0, Math.sin(i * 2.1) * 0.13); m.rotation.set(rand(0, 1), rand(0, 6), rand(0, 1)); setTimeout(() => drink === d && dropIn(d, m, top - 0.05, null, 1.0), i * 120); }
+  }
+}
+/* ---- player actions ---- */
+function startDrink(key) {
+  if (game.busy) return;
+  if (drink) { toast('There’s already a drink! Use ↺ New drink or the ♻️ bin first.', 2000); return; }
+  drink = makeDrink(key);
+  const D = DRINKS[key];
+  if (!D.build) {
+    setTimeout(() => {
+      if (!drink || drink.key !== key) return;
+      setColor(drink, D.col); drink.col.set(D.col);
+      pourInto(drink, D.cup === 'tall' ? 0.86 : 0.84, D.col, 1.5, () => { const d = drink; if (!d) return; d.done = true; drink.extras = D.garnish || []; (D.garnish || []).forEach((gk, i) => setTimeout(() => drink === d && addGarnish(d, gk), i * 350)); stat(s => s.drinks++); });
+    }, 380);
+  } else toast(key === 'coffee' ? '☕ Pull an espresso shot, then add milk, foam or latte art!' : '🥤 Drop in scoops, add milk, then blend it! 🌀', 2400);
+  renderDrinkPanel(); refreshUI();
+}
+const ESPRESSO = 0x2a1509, LATTE = 0xb07a4c;
+const DRINK_ACTS = {
+  shot: d => { if (d.shots >= 3) return; d.shots++; d.done = true; if (d.shots === 1) stat(s => s.drinks++); pourInto(d, Math.min(0.95, d.f + 0.16), d.milk ? 0x9a6438 : ESPRESSO, 0.9, null, ESPRESSO); },
+  steam: d => { if (d.milk) return; d.milk = true; pourInto(d, Math.min(0.86, d.f + 0.5), d.shots ? LATTE : 0xf4ece0, 1.3, null, 0xf7f1e6); },
+  foam: d => { if (d.foam) return; d.foam = true; pourInto(d, Math.min(0.97, d.f + 0.13), d.col.getHex(), 0.7, null, 0xfbf7f0); },
+  art: d => { if (d.art) return; if (!d.milk && !d.foam) { toast('Add steamed milk or foam first to draw latte art! 🥛', 2000); return; } if (!d.shots) { toast('Latte art needs an espresso shot first! ☕', 2000); return; } d.art = true; drawSurface(d); Sound.sfx('pop'); burst('🤍', new THREE.Vector3(DRINK_POS.x, 1.3, DRINK_POS.z), 3, { size: 0.3 }); },
+  scoop: (d, fl) => {
+    if (d.blended) { toast('It’s already blended! Start a new drink for more scoops.', 2000); return; }
+    if (d.scoops.length >= 3) { toast('The glass is full of scoops! 🍨', 1600); return; }
+    const m = scoopMesh(SHAKE[fl].col), i = d.scoops.length; d.scoops.push(fl); d.scoopMeshes.push(m);
+    m.position.set(Math.cos(i * 2.3) * 0.04, 0, Math.sin(i * 2.3) * 0.04); m.rotation.y = rand(0, 6);
+    dropIn(d, m, CUPS.tall.y0 + 0.16 + i * 0.21); Sound.sfx('pop');
+  },
+  smilk: d => { if (d.milk || d.blended) return; d.milk = true; pourInto(d, 0.3, 0xf7f3ea, 1.1); },
+  blend: d => {
+    if (d.blended) return;
+    if (!d.scoops.length) { toast('Drop in some ice cream scoops first! 🍨', 1800); return; }
+    if (!d.milk) { toast('Add a splash of milk before blending! 🥛', 1800); return; }
+    const mix = new THREE.Color(0, 0, 0); d.scoops.forEach(f => mix.add(new THREE.Color(SHAKE[f].col))); mix.multiplyScalar(1 / d.scoops.length).lerp(new THREE.Color(0xffffff), 0.12);
+    d.busy++; refreshUI(); Sound.sfx('blend');
+    const from = d.f, c0 = d.col.clone(), to = 0.62 + d.scoops.length * 0.1; let t = 0;
+    anims.push(dt => {
+      t += dt; const k = Math.min(1, t / 1.4);
+      d.g.position.x = DRINK_POS.x + Math.sin(t * 70) * 0.025 * (1 - k); d.g.position.z = DRINK_POS.z + Math.cos(t * 63) * 0.025 * (1 - k);
+      for (const m of d.scoopMeshes) { m.scale.setScalar(Math.max(0.001, 1 - k * 1.2)); m.rotation.y += dt * 12; }
+      setLevel(d, from + (to - from) * k); d.col.copy(c0).lerp(mix, Math.min(1, k * 1.5)); d.liq.material.color.copy(d.col); d.liq.material.roughness = 0.22 + k * 0.4;
+      if ((t * 8 | 0) % 2 === 0) drawSurface(d);
+      if (k >= 1) {
+        for (const m of d.scoopMeshes) { d.inner.remove(m); m.geometry.dispose(); m.material.dispose(); } d.scoopMeshes = [];
+        d.g.position.copy(DRINK_POS); d.blended = true; d.done = true; drawSurface(d);
+        const mound = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), d.liq.material); mound.scale.set(CUPS.tall.inner(d.top) * 0.98, 0.09, CUPS.tall.inner(d.top) * 0.98); mound.position.y = d.top - 0.005; d.inner.add(mound); d.mound = mound;
+        d.top += 0.07; d.busy--;
+        const flav = new Set(d.scoops); stat(s => { s.drinks++; if (flav.size === 1) addTo(s.shakes, d.scoops[0]); });
+        refreshUI(); renderDrinkPanel(); return false;
+      }
+    });
+  },
+  cream: d => { if (!d.blended) { toast('Blend the milkshake first! 🌀', 1600); return; } if (d.cream) return; d.cream = true; addGarnish(d, 'cream'); Sound.sfx('pop'); },
+  cherry: d => { if (!d.blended) { toast('Blend the milkshake first! 🌀', 1600); return; } if (d.cherry) return; d.cherry = true; addGarnish(d, 'cherry'); },
+  sprinkles: d => { if (!d.blended) { toast('Blend the milkshake first! 🌀', 1600); return; } if (d.sprinkles) return; d.sprinkles = true; addGarnish(d, 'sprinkles'); Sound.sfx('pop'); },
+  straw: d => { if (!d.blended) { toast('Blend the milkshake first! 🌀', 1600); return; } if (d.straw) return; d.straw = true; addGarnish(d, 'straw'); },
+};
+const PANEL_SETS = {
+  none: () => [['coffee', '☕', 'Coffee'], ['shake', '🥤', 'Milkshake'], ...SIMPLE().map(k => [k, DRINKS[k].e, DRINKS[k].short || DRINKS[k].name])],
+  coffee: () => [['shot', '☕', 'Espresso shot'], ['steam', '🥛', 'Steamed milk'], ['foam', '☁️', 'Milk foam'], ['art', '🤍', 'Latte art'], ['new', '↺', 'New drink']],
+  shake: () => [['scoop:vanilla', '🍨', 'Vanilla scoop'], ['scoop:chocolate', '🍫', 'Chocolate scoop'], ['scoop:strawberry', '🍓', 'Strawberry scoop'], ['smilk', '🥛', 'Milk'], ['blend', '🌀', 'Blend!'],
+    ['cream', '🍦', 'Whipped cream'], ['cherry', '🍒', 'Cherry'], ['sprinkles', '🌈', 'Sprinkles'], ['straw', '🥤', 'Straw'], ['new', '↺', 'New drink']],
+  simple: () => [['new', '↺', 'New drink']],
+};
+let panelSet = null;
+function renderDrinkPanel() {
+  const set = !drink ? 'none' : DRINKS[drink.key].build ? drink.key : 'simple';
+  const sig = set + (set === 'none' ? SIMPLE().join() : '');
+  if (sig === panelSet) return; panelSet = sig;
+  const el = $('panelDrinks');
+  el.innerHTML = (set === 'simple' ? `<span class="dkNote">${DRINKS[drink.key].e} ${DRINKS[drink.key].name} — all poured!</span>` : '') +
+    PANEL_SETS[set]().map(([a, e, n]) => `<button data-dk="${a}"${DRINKS[a] && DRINKS[a].holiday ? ' class="party"' : ''}><span class="i">${e}</span>${n}</button>`).join('');
+  for (const b of el.querySelectorAll('button')) b.onclick = () => {
+    if (game.busy) return;
+    const a = b.dataset.dk;
+    if (a in DRINKS) return startDrink(a);
+    if (a === 'new') { if (drink && !drink.busy) { removeDrink(); Sound.sfx('trash'); } return; }
+    if (!drink || drink.busy) return;
+    const [act, arg] = a.split(':'); DRINK_ACTS[act](drink, arg); refreshUI();
+  };
+}
+function refreshDrinkButtons() {
+  renderDrinkPanel();
+  const d = drink;
+  for (const b of document.querySelectorAll('#panelDrinks button')) {
+    const a = b.dataset.dk, [act] = a.split(':');
+    let off = game.busy || (d && d.busy > 0);
+    if (d) {
+      if (act === 'shot') off ||= d.shots >= 3;
+      if (act === 'steam') off ||= d.milk;
+      if (act === 'foam') off ||= d.foam;
+      if (act === 'art') off ||= d.art;
+      if (act === 'scoop') off ||= d.blended || d.scoops.length >= 3;
+      if (act === 'smilk') off ||= d.milk;
+      if (act === 'blend') off ||= d.blended;
+      if (['cream', 'cherry', 'sprinkles', 'straw'].includes(act)) off ||= !!d[act];
+      if (act === 'new') off = game.busy || d.busy > 0;
+    }
+    b.disabled = !!off;
+  }
+}
+function updateDrink(dt) {
+  if (!drink || !drink.steam) return;
+  for (const s of drink.steam) {
+    const u = s.userData; u.age += dt; if (u.age > u.life) u.age -= u.life;
+    const k = u.age / u.life, show = drink.f > 0.3 ? 1 : 0;
+    s.position.set(Math.sin(u.age * 1.7 + u.life) * 0.08, drink.top + 0.05 + k * 1.1, Math.cos(u.age * 1.3) * 0.06);
+    s.scale.setScalar(0.25 + k * 0.5); s.material.opacity = show * 0.22 * Math.sin(k * Math.PI);
+  }
+}
+/* ---- orders ---- */
+function genDrinkOrder(d) {
+  const r = Math.random();
+  if (r < 0.3) { const milk = Math.random() < 0.6, foam = Math.random() < (milk ? 0.5 : 0.3); return { key: 'coffee', shots: Math.random() < 0.15 && d >= 2 ? 3 : randInt(1, 2), milk, foam, art: (milk || foam) && Math.random() < 0.45 }; }
+  if (r < 0.6) { const cream = Math.random() < 0.7; return { key: 'shake', flavor: pick(Object.keys(SHAKE)), scoops: randInt(1, d === 1 ? 2 : 3), cream, cherry: cream && Math.random() < 0.55, sprinkles: Math.random() < 0.35, straw: Math.random() < 0.6 }; }
+  const hd = holidayDrink();
+  return { key: hd && Math.random() < 0.5 ? hd : pick(['milk', 'oj', 'cocoa']) };
+}
+function drinkCheck(o) {
+  const want = o.drink, d = drink, lines = [], extras = [];
+  if (!want) { if (d) extras.push((DRINKS[d.key].short || DRINKS[d.key].name).toLowerCase()); return { lines, extras }; }
+  const wrongKind = d && d.key !== want.key ? ' (wrong drink)' : '';
+  if (want.key === 'coffee') {
+    const isC = d && d.key === 'coffee';
+    lines.push({ emoji: '☕', text: `Coffee with ${want.shots} espresso shot${want.shots > 1 ? 's' : ''}`, ok: isC && d.shots === want.shots, note: wrongKind || (isC && d.shots && d.shots !== want.shots ? ` (${d.shots} shots)` : '') });
+    for (const [k, em, label] of [['milk', '🥛', 'steamed milk'], ['foam', '☁️', 'milk foam'], ['art', '🤍', 'latte-art heart']]) {
+      if (want[k]) lines.push({ emoji: em, text: `with ${label}`, ok: isC && !!d[k], note: '' });
+      else if (isC && d[k]) extras.push(label);
+    }
+  } else if (want.key === 'shake') {
+    const isS = d && d.key === 'shake', F = SHAKE[want.flavor], n = isS ? d.scoops.filter(f => f === want.flavor).length : 0, other = isS ? d.scoops.length - n : 0;
+    lines.push({ emoji: F.e, text: `${F.name} milkshake (${want.scoops} scoop${want.scoops > 1 ? 's' : ''})`, ok: isS && n === want.scoops && !other, note: wrongKind || (isS && d.scoops.length && (n !== want.scoops || other) ? ` (${n}/${want.scoops}${other ? ', wrong flavor' : ''})` : '') });
+    lines.push({ emoji: '🌀', text: 'blended with milk', ok: isS && d.milk && d.blended, note: isS && d.scoops.length ? (!d.milk ? ' (needs milk)' : !d.blended ? ' (not blended yet)' : '') : '' });
+    for (const [k, em, label] of [['cream', '🍦', 'whipped cream'], ['cherry', '🍒', 'a cherry on top'], ['sprinkles', '🌈', 'sprinkles'], ['straw', '🥤', 'a straw']]) {
+      if (want[k]) lines.push({ emoji: em, text: `with ${label}`, ok: isS && !!d[k], note: '' });
+      else if (isS && d[k]) extras.push(label.replace(/^a /, ''));
+    }
+  } else {
+    const D = DRINKS[want.key];
+    lines.push({ emoji: D.e, text: D.name, ok: !!(d && d.key === want.key && d.done), note: wrongKind });
+  }
+  return { lines, extras };
+}
+
 /* ---------- sticker book ---------- */
 const EVERYDAY = () => Object.keys(TYPES).filter(k => !TYPES[k].holiday);
 const STICKERS = [
@@ -2447,8 +2800,10 @@ const STICKERS = [
   ['tips100', '💰', 'Tip Jar', 'Earn $100 in tips', (s, g) => g.bank >= 100],
   ['holiday', '🎉', 'Holiday Spirit', 'Cook on a holiday', s => s.holidays.length >= 1],
   ['holiday6', '🎊', 'Party Animal', 'Celebrate all 7 holidays', s => s.holidays.length >= 7],
+  ['barista', '☕', 'Barista', 'Make 10 drinks', s => s.drinks >= 10],
+  ['shakes', '🥤', 'Shake Master', 'Blend all 3 milkshake flavors', s => s.shakes.length >= 3],
 ];
-const ST_DEF = () => ({ served: 0, perfect: 0, days: 0, perfectDay: 0, golden: 0, burnt: 0, tallest: 0, types: [], syrups: [], tops: [], photo: 0, recycle: 0, holidays: [] });
+const ST_DEF = () => ({ served: 0, perfect: 0, days: 0, perfectDay: 0, golden: 0, burnt: 0, tallest: 0, types: [], syrups: [], tops: [], photo: 0, recycle: 0, holidays: [], drinks: 0, shakes: [] });
 const addTo = (arr, v) => { if (!arr.includes(v)) arr.push(v); };
 function stat(fn) {
   game.stats = Object.assign(ST_DEF(), game.stats || {});
@@ -2528,6 +2883,7 @@ function newOrder() {
   if (kind) ({ emoji, name } = SPECIAL[kind]);
   else { let c; do c = pick(CUSTOMERS); while (c[1] === game.lastCustomer); [emoji, name] = c; }
   game.lastCustomer = name;
+  const mix = Math.random(), wantCakes = mix < 0.8, wantDrink = mix >= 0.42;
   const pool = Object.keys(TYPES).filter(typeUnlocked);
   const count = kind === 'kid' ? randInt(2, 3) : randInt(2, Math.min(5, 3 + Math.floor(d / 2)));
   const hType = curHoliday && HOLIDAYS[curHoliday].type, stacks = {}, t1 = hType && pool.includes(hType) && Math.random() < 0.5 ? hType : pick(pool);
@@ -2549,9 +2905,11 @@ function newOrder() {
     if (cand.length) { const t = pick(cand); t.where = t.key === 'butter' ? 'middle' : pick(['side', 'middle', 'edge']); }
   }
   const D = DIFFS[game.diff];
-  const base = (25 + count * 13 + tops.reduce((a, t) => a + t.n * 4, 0) + (tops.some(t => t.where) ? 8 : 0)) * (has('cozy') ? 1.2 : 1) * (kind === 'vip' ? 0.85 : 1);
+  if (!wantCakes) { for (const k in stacks) delete stacks[k]; tops.length = 0; }
+  const drinkWant = wantDrink ? genDrinkOrder(d) : null;
+  const base = (25 + (wantCakes ? count : 0) * 13 + (drinkWant ? 15 : 0) + tops.reduce((a, t) => a + t.n * 4, 0) + (tops.some(t => t.where) ? 8 : 0)) * (has('cozy') ? 1.2 : 1) * (kind === 'vip' ? 0.85 : 1);
   const limit = 0;
-  game.order = { emoji, name, kind, stacks, tops, base, limit, left: limit, mood: '', cooked: {} };
+  game.order = { emoji, name, kind, stacks, tops, base, limit, left: limit, mood: '', cooked: {}, drink: drinkWant };
   $('ticket').hidden = false; $('ticket').classList.add('away');
   requestAnimationFrame(() => requestAnimationFrame(() => $('ticket').classList.remove('away')));
   customerArrive(emoji);
@@ -2594,6 +2952,7 @@ function checkOrder() {
   const cooked = pancakes.some(p => p.cook);
   if (cooked) lines.push({ emoji: '♨️', text: 'cooked just right', ok: !pale && !burnt, soft: true, note: [pale && `${pale} pale`, burnt && `${burnt} burnt`].filter(Boolean).map(s => ` (${s})`).join('') });
   const extras = [...present].filter(t => !o.tops.some(x => x.key === t)).map(t => TOPPINGS[t][1]);
+  const dc = drinkCheck(o); lines.push(...dc.lines); extras.push(...dc.extras);
   const wrong = pancakes.filter(p => !(p.type in o.stacks)).length;
   return { lines, extras, wrong, badCook: pale + burnt, present };
 }
@@ -2608,10 +2967,10 @@ function renderTicket() {
   if (r.extras.length && o.kind !== 'kid') bits.push(`extra ${r.extras.join(', ')}`);
   $('tkExtra').textContent = bits.length ? 'Not ordered: ' + bits.join('; ') : '';
   $('tkPat').hidden = !o.limit;
-  $('bServe').disabled = !pancakes.length || game.busy || !!cook.P;
+  $('bServe').disabled = !(pancakes.length || drink) || game.busy || !!cook.P || !!(drink && drink.busy);
 }
 function serve() {
-  if (!pancakes.length || game.busy || !game.order) return;
+  if (!(pancakes.length || drink) || game.busy || !game.order || (drink && drink.busy)) return;
   if (cook.P) { toast('Finish the pancake on the griddle first! 🍳'); return; }
   const o = game.order, r = checkOrder();
   const miss = r.lines.filter(l => !l.ok && !l.soft).length, extra = (o.kind === 'kid' ? 0 : r.extras.length) + (r.wrong ? 1 : 0);
@@ -2635,7 +2994,7 @@ function serve() {
   game.busy = true; save();
   $('ticket').classList.add('away');
   const whisk = () => {
-    let t = 0; const groups = [...pancakes.map(P => P.group), ...looseBerries.map(b => b.g)];
+    let t = 0; const groups = [...pancakes.map(P => P.group), ...looseBerries.map(b => b.g), ...(drink ? [drink.g] : [])];
     anims.push(dt => { t += dt; for (const g of groups) { g.position.y += dt * 9 * t; g.position.x += dt * 6 * t; } return t < 1.1; });
     later(1.4, () => { clearPlate(); customerLeave(); game.busy = false; later(0.6, () => { if (game.n >= ORDERS_PER_DAY) endDay(); else newOrder(); }); });
   };
@@ -2658,6 +3017,7 @@ function clearPlate() {
   looseBerries.length = 0;
   for (const m of plateSyrup) scene.remove(m);
   plateSyrup.length = 0;
+  removeDrink();
   refreshUI();
 }
 function endDay() {
@@ -2997,6 +3357,12 @@ function showHelp() {
       <li><b>Tap</b> a topping to drop it anywhere. <b>Drag it up</b> onto the stack to put it in an exact spot.</li>
       <li>Some customers want things "in the middle", "around the edge" or "on one side only". Drag those into place.</li>
       <li>Adding another pancake moves all the toppings up onto the new top one.</li></ul>
+    <h3>🥤 Drinks</h3><ul>
+      <li>Some customers want pancakes, some want a drink, and some want both. Check the ticket!</li>
+      <li><b>Coffee ☕:</b> tap Coffee for an empty mug, then add <b>espresso shots</b>, <b>steamed milk</b>, <b>milk foam</b> and <b>latte art</b>.</li>
+      <li><b>Milkshake 🥤:</b> tap Milkshake for a tall glass, drop in <b>ice cream scoops</b>, add <b>milk</b>, then tap <b>Blend!</b> 🌀. After blending, add whipped cream, a cherry, sprinkles or a straw.</li>
+      <li><b>Milk, orange juice, hot chocolate</b> and holiday drinks pour all by themselves with one tap.</li>
+      <li>Tap <b>↺ New drink</b> (or use the ♻️ bin) to start a drink over.</li></ul>
     <h3>♻️ Throwing things away</h3><ul>
       <li>Drag the green recycling bin over anything. It glows red and shows its name.</li>
       <li>Let go, then choose <b>Yes, delete</b> or <b>No</b>.</li></ul>
@@ -3166,6 +3532,7 @@ function refreshUI() {
   $('bSprinkle').disabled = !P || P.sprinkles >= 4;
   $('bCream').disabled = full || P.creams >= 3;
   $('bSugar').disabled = !P || P.sugarCount >= 4;
+  refreshDrinkButtons();
   if (!shift) $('ticket').hidden = true;
   renderTicket();
 }
@@ -3183,9 +3550,11 @@ for (const b of document.querySelectorAll('#panelPancakes button')) b.onclick = 
     addPancake(k, P);
   } else if (game.mode === 'shift') startCooking(k); else addPancake(k);
 };
+let curTab = 'pancakes';
 for (const tab of document.querySelectorAll('.tab')) tab.onclick = () => {
+  curTab = tab.dataset.tab;
   for (const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t === tab);
-  for (const [k, id] of [['pancakes', 'panelPancakes'], ['syrups', 'panelSyrups'], ['toppings', 'panelToppings']]) $(id).hidden = tab.dataset.tab !== k;
+  for (const [k, id] of [['pancakes', 'panelPancakes'], ['syrups', 'panelSyrups'], ['toppings', 'panelToppings'], ['drinks', 'panelDrinks']]) $(id).hidden = tab.dataset.tab !== k;
   $('barwrap').scrollLeft = 0;
 };
 const guard = (key, fn) => () => {
@@ -3266,7 +3635,7 @@ for (const b of document.querySelectorAll('#panelToppings button')) wireDrag(b);
 // the pointer events above swallow nothing, so plain taps still reach onclick
 $('bServe').onclick = serve;
 $('bFlip').onclick = () => { if (cook.stage === 'side1') flipPancake(); else if (cook.stage === 'side2') platePancake(); };
-$('bClear').onclick = () => { if (!game.busy && pancakes.length) showModal('<h2>Start this plate over?</h2><p>Everything on the plate will be cleared.</p>', [{ label: 'Keep it', act: () => {} }, { label: 'Clear plate', cls: 'danger', act: () => { clearPlate(); Sound.sfx('trash'); } }]); };
+$('bClear').onclick = () => { if (!game.busy && (pancakes.length || drink)) showModal('<h2>Start this plate over?</h2><p>Everything on the plate (and the drink) will be cleared.</p>', [{ label: 'Keep it', act: () => {} }, { label: 'Clear plate', cls: 'danger', act: () => { clearPlate(); Sound.sfx('trash'); } }]); };
 $('bPhoto').onclick = takePhoto;
 $('bMenu').onclick = () => showStart();
 $('bHelp').onclick = showHelp;
@@ -3295,11 +3664,12 @@ function frame() {
   updatePour(rdt);
   updateSteam(dt);
   updateFloaties(dt);
-  updateHoliday(rdt);
+  updateHoliday(rdt); updateDrink(rdt);
   updatePatience(rdt);
   // look at the griddle while cooking, otherwise at the stack
-  const cooking = cook.P && cook.stage !== 'idle';
-  tgt.set(cooking ? PAN.x * 0.8 : 0, cooking ? 0.35 : Math.max(0.35, stackTop() * 0.55), cooking ? PAN.z * 0.8 : 0);
+  const cooking = cook.P && cook.stage !== 'idle', mixing = !cooking && drink && curTab === 'drinks';
+  if (mixing) tgt.set(DRINK_POS.x * 0.7, 0.75, DRINK_POS.z * 0.7);
+  else tgt.set(cooking ? PAN.x * 0.8 : 0, cooking ? 0.35 : Math.max(0.35, stackTop() * 0.55), cooking ? PAN.z * 0.8 : 0);
   controls.target.lerp(tgt, Math.min(1, rdt * 2.2));
   if (!updateSwoop(rdt)) controls.update();
   updateCustomer(rdt);
