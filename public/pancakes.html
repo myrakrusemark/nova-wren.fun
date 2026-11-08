@@ -2900,10 +2900,6 @@ function newOrder() {
   // almost everyone wants at least one topping; very rarely someone wants none
   const nTop = Math.random() < 0.05 ? 0 : randInt(1, Math.min(3, 1 + Math.floor((d + 1) / 2)));
   const tops = [...syrPool.slice(0, nSyr), ...topPool.slice(0, nTop)].map(key => ({ key, n: randInt(1, Math.min(TOPPINGS[key][4], d === 1 ? 2 : 3)) }));
-  if (d >= 2 && Math.random() < 0.35) {
-    const cand = tops.filter(t => HANDFUL.includes(t.key) || t.key === 'butter');
-    if (cand.length) { const t = pick(cand); t.where = t.key === 'butter' ? 'middle' : pick(['side', 'middle', 'edge']); }
-  }
   const D = DIFFS[game.diff];
   if (!wantCakes) { for (const k in stacks) delete stacks[k]; tops.length = 0; }
   const drinkWant = wantDrink ? genDrinkOrder(d) : null;
@@ -2914,6 +2910,7 @@ function newOrder() {
   requestAnimationFrame(() => requestAnimationFrame(() => $('ticket').classList.remove('away')));
   customerArrive(emoji);
   Sound.sfx('pop');
+  const pt = document.querySelector('.tab[data-tab=pancakes]'); if (pt && curTab !== 'pancakes') pt.click();
   refreshUI();
 }
 function presentToppings(P) {
@@ -3513,6 +3510,7 @@ function lockedToast(key) {
   toast(`🔒 ${TOPPINGS[key][1]} is locked.<br>Buy it in the 🛒 shop for $${s ? s.price : '?'}.`, 2200);
 }
 function refreshUI() {
+  applyLocks();
   const P = topP(), shift = game.mode === 'shift';
   $('status').textContent = shift
     ? `Day ${game.day} · ${Math.min(game.n + (game.order ? 1 : 0), ORDERS_PER_DAY)}/${ORDERS_PER_DAY} · $${game.tips} tips${game.special ? ` · Special: ${TOPPINGS[game.special][0]}` : ''}`
