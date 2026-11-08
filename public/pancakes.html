@@ -109,6 +109,18 @@
   #pourTag[hidden]{display:none}
   [data-syrup]{-webkit-touch-callout:none;touch-action:pan-x}
   [data-syrup].pouring{background:rgba(255,196,110,.35);transform:scale(.94)}
+  .stickers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:54vh;overflow-y:auto;margin:8px 0;padding:6px 4px;-webkit-overflow-scrolling:touch}
+  .st{background:#f1e6d6;border-radius:14px;padding:8px 4px 7px;text-align:center}
+  .st .e{display:block;font-size:32px;line-height:1.2;filter:grayscale(1);opacity:.22}
+  .st.got{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.14);transform:rotate(var(--r))}
+  .st.got .e{filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 2px 3px rgba(0,0,0,.25));opacity:1}
+  .st b{display:block;font-size:11.5px;color:#3b2a1e;margin-top:2px}
+  .st small{display:block;font-size:10px;color:#9a8068;line-height:1.25;margin-top:2px}
+  .seg.wrap{flex-wrap:wrap;border-radius:18px}
+  .seg.wrap button{flex:0 0 auto;min-width:40px;padding:7px 9px}
+  button[hidden]{display:none}
+  button.party{background:rgba(255,120,180,.18);position:relative}
+  button.party::after{content:'🎉';position:absolute;top:1px;right:3px;font-size:10px}
   .worldbtn{flex-direction:row;justify-content:center;gap:5px;margin:2px auto 6px;background:#efe3d2;color:#3b2a1e;font-size:13px;padding:7px 14px;border-radius:999px}
   .worldbtn span{color:#9a8068}
   .worlds{max-height:46vh;overflow-y:auto;text-align:left;margin:8px 0;-webkit-overflow-scrolling:touch}
@@ -284,6 +296,12 @@ const TYPES = {
   redvelvet: { name: 'Red velvet', emoji: '❤️', pal: [[156, 54, 46], [106, 34, 28], [80, 24, 20], [182, 74, 64]], pore: 'rgba(60,10,10,0.55)', seed: 51 },
   matcha: { name: 'Matcha', emoji: '🍵', pal: [[150, 162, 84], [120, 108, 52], [96, 82, 38], [174, 186, 116]], pore: 'rgba(60,60,20,0.5)', seed: 61 },
   funfetti: { name: 'Funfetti', emoji: '🎉', pal: [[222, 166, 86], [168, 98, 42], [122, 66, 28], [234, 196, 134]], inc: 'funfetti', seed: 71 },
+  pumpkin: { name: 'Pumpkin', emoji: '🎃', pal: [[224, 138, 58], [172, 86, 30], [124, 60, 22], [238, 170, 98]], inc: 'spice', seed: 91, holiday: true },
+  gingerbread: { name: 'Gingerbread', emoji: '🎄', pal: [[170, 102, 54], [120, 68, 32], [88, 48, 22], [192, 132, 82]], inc: 'spice', seed: 92, holiday: true },
+  sweetheart: { name: 'Sweetheart', emoji: '💗', pal: [[240, 168, 176], [204, 116, 126], [172, 84, 94], [248, 200, 204]], inc: 'hearts', seed: 93, holiday: true },
+  lucky: { name: 'Lucky Clover', emoji: '🍀', pal: [[176, 206, 124], [130, 152, 72], [100, 118, 50], [200, 224, 152]], inc: 'clover', seed: 94, holiday: true },
+  lemon: { name: 'Lemon Spring', emoji: '🍋', pal: [[242, 212, 112], [204, 152, 60], [164, 112, 40], [250, 234, 172]], inc: 'zest', seed: 95, holiday: true },
+  firecracker: { name: 'Firecracker', emoji: '🎆', pal: BASE_PAL, inc: 'funfetti', incColors: ['#e3345a', '#ffffff', '#3b6fd8'], seed: 96, holiday: true },
   souffle: { name: 'Soufflé', emoji: '☁️', pal: [[236, 192, 120], [204, 140, 66], [176, 112, 48], [246, 226, 186]], pores: 450, seed: 81, geo: { T: 0.42, R: 0.8, DOME: 0.06, RX: 0.17 } },
 };
 
@@ -345,8 +363,31 @@ function pancakeTextures(seed, k) {
       rx.fillStyle = 'rgb(70,70,70)'; rx.beginPath(); rx.arc(px, py, rad, 0, 7); rx.fill();
     }
   }
+  if (type.inc === 'spice' || type.inc === 'zest') {
+    for (let n = 0; n < (type.inc === 'spice' ? 1500 : 600); n++) {
+      const [px, py] = at(Math.sqrt(N.rnd()) * 0.97, N.rnd() * 7);
+      cx.fillStyle = type.inc === 'spice' ? `rgba(90,45,15,${0.35 + N.rnd() * 0.3})` : ['#f6e05a', '#e9c23a', '#fff3a0'][n % 3];
+      cx.fillRect(px, py, 1 + N.rnd() * 2, 1 + N.rnd() * 2);
+    }
+  }
+  if (type.inc === 'hearts' || type.inc === 'clover') {
+    for (let n = 0; n < 26; n++) {
+      const [px, py] = at(Math.sqrt(N.rnd()) * 0.93, N.rnd() * 7), r = 6 + N.rnd() * 5;
+      cx.save(); cx.translate(px, py); cx.rotate(N.rnd() * 6.28);
+      if (type.inc === 'hearts') {
+        cx.fillStyle = '#d8344f'; cx.beginPath(); cx.moveTo(0, r * 0.9);
+        cx.bezierCurveTo(-r * 1.4, -r * 0.2, -r * 0.6, -r * 1.2, 0, -r * 0.4); cx.bezierCurveTo(r * 0.6, -r * 1.2, r * 1.4, -r * 0.2, 0, r * 0.9); cx.fill();
+      } else {
+        cx.fillStyle = '#2f8a3a';
+        for (let j = 0; j < 3; j++) { const a = j / 3 * Math.PI * 2; cx.beginPath(); cx.arc(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5, r * 0.5, 0, 7); cx.fill(); }
+        cx.fillRect(-0.8, 0, 1.6, r * 1.2);
+      }
+      cx.restore();
+      bx.fillStyle = 'rgba(225,225,225,0.85)'; bx.beginPath(); bx.arc(px, py, r * 0.9, 0, 7); bx.fill();
+    }
+  }
   if (type.inc === 'funfetti') {
-    const cols = ['#ff4d6d', '#ffd23f', '#3bceac', '#4d96ff', '#ff8c42', '#b15eff'];
+    const cols = type.incColors || ['#ff4d6d', '#ffd23f', '#3bceac', '#4d96ff', '#ff8c42', '#b15eff'];
     for (let n = 0; n < 520; n++) {
       const [px, py] = at(Math.sqrt(N.rnd()) * 0.96, N.rnd() * 7);
       cx.save(); cx.translate(px, py); cx.rotate(N.rnd() * 3.14); cx.globalAlpha = 0.85;
@@ -476,7 +517,7 @@ function ginghamPattern(x, col = 'rgba(214,40,52,0.5)', sz = 24) {
   g.fillRect(0, 0, sz, sz / 2); g.fillRect(0, 0, sz / 2, sz);
   return x.createPattern(c, 'repeat');
 }
-function cafeTexture(theme = 'mint') {
+function cafeTexture(theme = 'mint', holiday = null) {
   const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
   const x = c.getContext('2d');
   const L = 2 * Math.PI * ROOM_R, sx = W / L, sy = H / (CEIL_Y - FLOOR_Y);
@@ -595,6 +636,7 @@ function cafeTexture(theme = 'mint') {
     for (const [b, w, col] of [[40, 6, 'rgba(255,90,160,0.5)'], [16, 4, '#ff7ab6'], [4, 2, '#ffe3f0']]) { x.shadowBlur = b; x.lineWidth = w; x.strokeStyle = col; x.strokeText('Pancakes', 0, 0); }
     x.restore(); void s;
   }
+  if (holiday) drawHolidayDecor(x, X, Y, sx, sy, L, winC, gap, holiday);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.anisotropy = ANISO;
   return t;
 }
@@ -1602,6 +1644,7 @@ function addPancake(k = 'buttermilk', fromPan = null) {
   const P = fromPan || makePancake(k); P.baseY = baseY; P.born = performance.now();
   P.mesh.userData.del = { name: `${P.name.toLowerCase()} pancake`, objs: () => [P.mesh], remove: () => deletePancake(P) };
   scene.add(P.group); pancakes.push(P);
+  stat(s => { addTo(s.types, P.type); s.tallest = Math.max(s.tallest, pancakes.length); if (curHoliday) addTo(s.holidays, curHoliday); });
   if (prev && hasToppings(prev)) {
     // toppings hop up while the new pancake slides in underneath them
     P.group.position.set(prev.group.position.x, baseY, prev.group.position.z);
@@ -1756,7 +1799,7 @@ function binRelease() {
     const nm = pendingRec.name;
     showModal(`<div class="big">🗑️</div><h2>Delete the ${nm}?</h2><p>It'll go straight into the recycling.</p>`, [
       { label: 'No', act: () => { unhighlight(pendingRec); pendingRec = null; binHome(); } },
-      { label: 'Yes, delete', cls: 'danger', act: () => { const r = pendingRec; unhighlight(r); pendingRec = null; binHome(); r.remove(); Sound.sfx('trash'); refreshUI(); } }
+      { label: 'Yes, delete', cls: 'danger', act: () => { const r = pendingRec; unhighlight(r); pendingRec = null; binHome(); r.remove(); Sound.sfx('trash'); stat(s => s.recycle++); refreshUI(); } }
     ]);
   } else { binHome(); if (!moved) toast('Drag the bin onto a topping or pancake to throw it away ♻️'); }
 }
@@ -1852,11 +1895,152 @@ const SHOP = [
 const FREE_TOPPINGS = ['butter', 'maple', 'blueberry', 'strawberry', 'banana', 'cream', 'chips', 'sugar'];
 const TYPE_DAY = { buttermilk: 1, blueberry: 1, chocchip: 1, chocolate: 2, funfetti: 3, redvelvet: 4, matcha: 5, souffle: 6 };
 
+/* ---------- holidays ---------- */
+const HOLIDAYS = {
+  halloween: { name: 'Halloween', emoji: '🎃', fall: ['🦇', '🍂'], props: ['🎃', '👻'], type: 'pumpkin', bunting: ['#ff8a1f', '#3b2a4a', '#7ac143'] },
+  winter: { name: 'Winter Holidays', emoji: '🎄', fall: ['❄️'], props: ['🎄', '☃️'], type: 'gingerbread', bunting: ['#d83a3a', '#2f8a4a', '#f4f1e8'] },
+  valentine: { name: 'Valentine’s Day', emoji: '💝', fall: ['💗', '💕'], props: ['💝', '🌹'], type: 'sweetheart', bunting: ['#ff6fa3', '#ffffff', '#e3345a'] },
+  stpatrick: { name: 'St. Patrick’s Day', emoji: '🍀', fall: ['🍀'], props: ['🌈', '🪙'], type: 'lucky', bunting: ['#2f9a4a', '#ffd23f', '#ffffff'] },
+  spring: { name: 'Spring Fling', emoji: '🐣', fall: ['🌸'], props: ['🐣', '🌷'], type: 'lemon', bunting: ['#ffb3c7', '#9fd3ee', '#ffe98a'] },
+  fireworks: { name: 'Fireworks Night', emoji: '🎆', fall: ['🎉', '✨'], props: ['🎆', '🎈'], type: 'firecracker', bunting: ['#e3345a', '#ffffff', '#3b6fd8'] },
+};
+const HOLIDAY_CYCLE = ['halloween', 'winter', 'valentine', 'stpatrick', 'spring', 'fireworks'];
+let curHoliday = null;
+function calendarHoliday(d = new Date()) {
+  const m = d.getMonth() + 1, day = d.getDate();
+  if ((m === 12 && day === 31) || (m === 1 && day === 1) || (m === 7 && day <= 4)) return 'fireworks';
+  if (m === 10 && day >= 20) return 'halloween';
+  if (m === 12 && day <= 26) return 'winter';
+  if (m === 2 && day >= 7 && day <= 14) return 'valentine';
+  if (m === 3 && day >= 14 && day <= 17) return 'stpatrick';
+  if (m === 4 && day <= 20) return 'spring';
+  return null;
+}
+// in a shift, every 4th day is a party day (plus real-world holidays)
+function holidayFor() {
+  if (game.mode === 'free') return game.freeHoliday === 'auto' ? calendarHoliday() : (game.freeHoliday in HOLIDAYS ? game.freeHoliday : null);
+  return calendarHoliday() || (game.day % 4 === 0 ? HOLIDAY_CYCLE[(game.day / 4 - 1) % HOLIDAY_CYCLE.length] : null);
+}
+const nextPartyDay = () => Math.ceil((game.day + 1) / 4) * 4;
+const holidayProps = [], holidayFall = [];
+function applyHoliday() {
+  const h = holidayFor();
+  if (h === curHoliday) return;
+  curHoliday = h;
+  applyLook(); applyLocks();
+  for (const s of [...holidayProps, ...holidayFall]) { scene.remove(s); s.material.dispose(); }
+  holidayProps.length = 0; holidayFall.length = 0;
+  if (!h) return;
+  const H = HOLIDAYS[h];
+  [[0.7, -3.95, 1.0], [-1.45, 3.85, 0.9]].forEach(([x, z, sc], i) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: floatTex[H.props[i]] || (floatTex[H.props[i]] = emojiTexture(H.props[i], 128)), toneMapped: false }));
+    s.scale.set(sc, sc, 1); s.position.set(x, sc * 0.46, z); scene.add(s); holidayProps.push(s);
+  });
+  for (let i = 0; i < 34; i++) {
+    const e = H.fall[i % H.fall.length];
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: floatTex[e] || (floatTex[e] = emojiTexture(e, 128)), toneMapped: false, transparent: true, depthWrite: false }));
+    const sc = rand(0.22, 0.42); s.scale.set(sc, sc, 1);
+    s.userData = { v: rand(0.35, 0.8), ph: rand(0, 6.28), spin: rand(-1, 1) };
+    resetFall(s, true); scene.add(s); holidayFall.push(s);
+  }
+}
+function resetFall(s, anywhere) {
+  const r = Math.sqrt(Math.random()) * 9, a = rand(0, 6.28);
+  s.position.set(r * Math.cos(a), anywhere ? rand(-1, 10) : rand(9, 11), r * Math.sin(a));
+}
+function updateHoliday(dt) {
+  for (const s of holidayFall) {
+    const u = s.userData; u.ph += dt;
+    s.position.y -= u.v * dt; s.position.x += Math.sin(u.ph * 1.3) * 0.25 * dt;
+    s.material.rotation = Math.sin(u.ph) * 0.5 * u.spin;
+    if (s.position.y < -1.2) resetFall(s, false);
+  }
+}
+function drawHolidayDecor(x, X, Y, sx, sy, L, winC, gap, holiday) {
+  const H = HOLIDAYS[holiday]; if (!H) return;
+  const em = (e, s, y, size) => { x.save(); x.translate(X(s), Y(y)); x.scale(sx / sy, 1); x.font = `${size * sy}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(e, 0, 0); x.restore(); };
+  // bunting garland around the whole room
+  x.strokeStyle = 'rgba(70,50,40,.7)'; x.lineWidth = 2; x.beginPath();
+  const sag = s => 18.9 - Math.sin(((s % 16.75) / 16.75) * Math.PI) * 1.2;
+  for (let s = 0; s <= L; s += 0.3) s ? x.lineTo(X(s), Y(sag(s))) : x.moveTo(X(s), Y(sag(s)));
+  x.stroke();
+  let i = 0;
+  for (let s = 0.4; s < L; s += 1.25, i++) {
+    const y = sag(s); x.fillStyle = H.bunting[i % H.bunting.length];
+    x.beginPath(); x.moveTo(X(s - 0.5), Y(y)); x.lineTo(X(s + 0.5), Y(y)); x.lineTo(X(s), Y(y - 1.3)); x.closePath(); x.fill();
+  }
+  // window decorations
+  for (const sc of winC) {
+    if (holiday === 'winter') { x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(X(sc), Y(0.55), 6.6 * sx, 0.5 * sy, 0, Math.PI, 0); x.fill(); }
+    em(H.props[0], sc - 3.6, 1.7, 2.2); em(H.props[1], sc + 3.6, 1.6, 2.0);
+    em(H.fall[0], sc - 2.6, 9.5, 1.5); em(H.fall[0], sc + 2.8, 12.2, 1.3); em(H.fall[H.fall.length - 1], sc, 15.6, 1.4);
+  }
+  for (const s of gap) em(H.emoji, s, -5.5, 2.2);
+}
+
+/* ---------- sticker book ---------- */
+const EVERYDAY = () => Object.keys(TYPES).filter(k => !TYPES[k].holiday);
+const STICKERS = [
+  ['first', '🥞', 'First Stack', 'Serve your first order', s => s.served >= 1],
+  ['perfect', '⭐', 'Perfect Plate', 'Get 3 stars on an order', s => s.perfect >= 1],
+  ['perfect10', '🌟', 'Star Chef', 'Get 3 stars 10 times', s => s.perfect >= 10],
+  ['perfect50', '👑', 'Pancake Royalty', 'Get 3 stars 50 times', s => s.perfect >= 50],
+  ['day1', '☀️', 'Day One Done', 'Finish a whole day', s => s.days >= 1],
+  ['day5', '📅', 'Regular Hours', 'Finish 5 days', s => s.days >= 5],
+  ['flawless', '🏆', 'Flawless Day', 'Get 28+ stars in one day', s => s.perfectDay >= 1],
+  ['golden', '🍳', 'Golden Flip', 'Cook a perfect pancake', s => s.golden >= 1],
+  ['golden25', '👩‍🍳', 'Griddle Master', 'Cook 25 perfect pancakes', s => s.golden >= 25],
+  ['burnt', '🔥', 'Oops!', 'Burn a pancake (it happens!)', s => s.burnt >= 1],
+  ['tall8', '🏗️', 'Tall Stack', 'Stack 8 pancakes on one plate', s => s.tallest >= 8],
+  ['tall12', '🗼', 'Sky High', 'Stack 12 pancakes on one plate', s => s.tallest >= 12],
+  ['syrups', '🍯', 'Syrup Collector', 'Pour all 5 syrups', s => s.syrups.length >= 5],
+  ['toppings', '🌈', 'Topping Taster', 'Use all 13 toppings', s => s.tops.length >= 13],
+  ['types', '🎨', 'Pancake Rainbow', 'Make all 8 everyday pancakes', s => EVERYDAY().every(k => s.types.includes(k))],
+  ['photo', '📸', 'Say Pancakes!', 'Take a photo of your stack', s => s.photo >= 1],
+  ['recycle', '♻️', 'Tidy Chef', 'Throw something in the bin', s => s.recycle >= 1],
+  ['tips100', '💰', 'Tip Jar', 'Earn $100 in tips', (s, g) => g.bank >= 100],
+  ['holiday', '🎉', 'Holiday Spirit', 'Cook on a holiday', s => s.holidays.length >= 1],
+  ['holiday6', '🎊', 'Party Animal', 'Celebrate all 6 holidays', s => s.holidays.length >= 6],
+];
+const ST_DEF = () => ({ served: 0, perfect: 0, days: 0, perfectDay: 0, golden: 0, burnt: 0, tallest: 0, types: [], syrups: [], tops: [], photo: 0, recycle: 0, holidays: [] });
+const addTo = (arr, v) => { if (!arr.includes(v)) arr.push(v); };
+function stat(fn) {
+  game.stats = Object.assign(ST_DEF(), game.stats || {});
+  fn(game.stats); checkStickers(); save();
+}
+const stickerQueue = []; let stickerBusy = false;
+function checkStickers() {
+  game.stickers = game.stickers || {};
+  const s = Object.assign(ST_DEF(), game.stats || {});
+  for (const [id, e, name, , test] of STICKERS) if (!game.stickers[id] && test(s, game)) { game.stickers[id] = Date.now(); stickerQueue.push([e, name]); }
+  pumpStickers();
+}
+function pumpStickers() {
+  if (stickerBusy || !stickerQueue.length) return;
+  if ($('toast').classList.contains('show') || !$('modal').hidden) { setTimeout(pumpStickers, 600); return; }
+  stickerBusy = true;
+  const [e, name] = stickerQueue.shift();
+  toast(`<div style="font-size:46px;line-height:1.1">${e}</div><b>New sticker!</b><br>${name}<br><small style="color:#9a8068">See it in ☰ Menu → 📒 Stickers</small>`, 2600);
+  Sound.sfx('ding'); burst('✨', new THREE.Vector3(0, stackTop() + 0.6, 0), 6, { size: 0.35 });
+  setTimeout(() => { stickerBusy = false; pumpStickers(); }, 3000);
+}
+function showStickers(back) {
+  const got = game.stickers || {}, n = STICKERS.filter(s => got[s[0]]).length;
+  $('modalCard').innerHTML = `<h2>📒 Sticker Book</h2><p><b>${n}</b> of ${STICKERS.length} stickers in <b>${esc(curWorld().name)}</b></p>
+    <div class="stickers">${STICKERS.map(([id, e, name, desc], i) => got[id]
+      ? `<div class="st got" style="--r:${((i * 37) % 9) - 4}deg"><span class="e">${e}</span><b>${name}</b><small>${desc}</small></div>`
+      : `<div class="st"><span class="e">${e}</span><b>???</b><small>${desc}</small></div>`).join('')}</div>
+    <div class="row"><button class="primary" id="sbDone">Close</button></div>`;
+  $('modal').hidden = false;
+  $('sbDone').onclick = back || (() => { $('modal').hidden = true; });
+}
+
+
 const game = { day: 1, n: 0, tips: 0, stars: 0, bank: 0, order: null, busy: false, lastCustomer: null, mode: 'shift', diff: 'normal', owned: [], plate: 'plate-white', wall: 'wall-mint', best: { stars: 0, tips: 0, day: 0 }, special: null, started: false };
 /* ---------- worlds (separate named saves) ---------- */
 const WORLD_KEY = 'pancakeWorlds';
-const SAVE_FIELDS = ['day', 'n', 'tips', 'stars', 'bank', 'mode', 'diff', 'owned', 'plate', 'wall', 'best', 'special'];
-const DEFAULTS = () => ({ day: 1, n: 0, tips: 0, stars: 0, bank: 0, mode: 'shift', diff: 'normal', owned: [], plate: 'plate-white', wall: 'wall-mint', best: { stars: 0, tips: 0, day: 0 }, special: null });
+const SAVE_FIELDS = ['day', 'n', 'tips', 'stars', 'bank', 'mode', 'diff', 'owned', 'plate', 'wall', 'best', 'special', 'stats', 'stickers', 'freeHoliday'];
+const DEFAULTS = () => ({ stats: {}, stickers: {}, freeHoliday: 'auto', day: 1, n: 0, tips: 0, stars: 0, bank: 0, mode: 'shift', diff: 'normal', owned: [], plate: 'plate-white', wall: 'wall-mint', best: { stars: 0, tips: 0, day: 0 }, special: null });
 let worlds = { current: null, list: {} };
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const curWorld = () => worlds.list[worlds.current];
@@ -1877,7 +2061,7 @@ function save() {
 loadWorlds(); loadWorldIntoGame();
 const has = id => game.owned.includes(id);
 const unlocked = key => true;
-const typeUnlocked = k => game.mode === 'free' || game.day >= TYPE_DAY[k];
+const typeUnlocked = k => TYPES[k].holiday ? !!curHoliday && HOLIDAYS[curHoliday].type === k : (game.mode === 'free' || game.day >= TYPE_DAY[k]);
 const shiftOn = () => game.mode === 'shift' && game.started;
 
 function startDay() {
@@ -1885,8 +2069,9 @@ function startDay() {
   const pool = Object.keys(TOPPINGS).filter(unlocked);
   game.special = pick(pool);
   const fresh = Object.keys(TYPE_DAY).filter(k => TYPE_DAY[k] === game.day);
-  save();
-  toast(`☀️ <b>Day ${game.day}</b> begins!<br>Today’s special: ${TOPPINGS[game.special][0]} ${TOPPINGS[game.special][1]} (+$2 a plate)${fresh.length && game.day > 1 ? `<br>New pancake: ${fresh.map(k => TYPES[k].emoji + ' ' + TYPES[k].name).join(', ')}!` : ''}`, 3600);
+  applyHoliday(); save();
+  const H = curHoliday && HOLIDAYS[curHoliday];
+  toast(`☀️ <b>Day ${game.day}</b> begins!${H ? `<br>${H.emoji} <b>It’s ${H.name}!</b> Try the ${TYPES[H.type].emoji} ${TYPES[H.type].name} pancakes!` : ''}<br>Today’s special: ${TOPPINGS[game.special][0]} ${TOPPINGS[game.special][1]} (+$2 a plate)${fresh.length && game.day > 1 ? `<br>New pancake: ${fresh.map(k => TYPES[k].emoji + ' ' + TYPES[k].name).join(', ')}!` : ''}`, 4200);
   later(1.2, newOrder);
 }
 function newOrder() {
@@ -1899,7 +2084,7 @@ function newOrder() {
   game.lastCustomer = name;
   const pool = Object.keys(TYPES).filter(typeUnlocked);
   const count = kind === 'kid' ? randInt(2, 3) : randInt(2, Math.min(5, 3 + Math.floor(d / 2)));
-  const stacks = {}, t1 = pick(pool);
+  const hType = curHoliday && HOLIDAYS[curHoliday].type, stacks = {}, t1 = hType && pool.includes(hType) && Math.random() < 0.5 ? hType : pick(pool);
   if (d >= 2 && count >= 3 && pool.length > 1 && Math.random() < 0.35) { const t2 = pick(pool.filter(t => t !== t1)), a = randInt(1, count - 1); stacks[t1] = a; stacks[t2] = count - a; }
   else stacks[t1] = count;
   const avail = Object.keys(TOPPINGS).filter(unlocked);
@@ -1995,6 +2180,7 @@ function serve() {
   tip += special;
   if (has('tipjar')) tip = Math.round(tip * 1.25);
   game.stars += stars; game.tips += tip; game.bank += tip; game.n++;
+  stat(s => { s.served++; if (stars === 3) s.perfect++; });
   const say = stars === 3 ? pick(['Perfect! Just how I like it!', 'Yum yum yum!', 'This is the best stack ever!', 'Wow, thank you!'])
     : stars === 2 ? pick(['Tasty! Not exactly what I asked for though.', 'Pretty good!']) : stars === 1 ? pick(['Hmm, something’s not right…', 'Close, but not quite.']) : pick(['That’s not what I ordered!', 'Um… is this mine?']);
   toast(`<div style="font-size:34px">${o.emoji}</div>${say}<div style="font-size:20px;margin-top:4px">${'⭐'.repeat(stars) || '💔'}${tip ? ` <b>+$${tip}</b>` : ''}</div>${special ? '<small>includes today’s special bonus</small>' : ''}`, 2800);
@@ -2029,6 +2215,7 @@ function clearPlate() {
   refreshUI();
 }
 function endDay() {
+  stat(s => { s.days++; if (game.stars >= 28) s.perfectDay++; });
   const max = ORDERS_PER_DAY * 3, pct = game.stars / max;
   const rating = pct >= 0.85 ? 3 : pct >= 0.6 ? 2 : pct >= 0.3 ? 1 : 0;
   const verdict = ['Tomorrow will be better!', 'Not bad at all!', 'Great shift! 🎉', 'Superstar chef! 🏆'][rating];
@@ -2039,6 +2226,7 @@ function endDay() {
     <p style="font-size:18px;color:#3b2a1e;margin-top:10px">⭐ ${game.stars} / ${max}<br>💰 $${game.tips} in tips</p>
     ${isBest ? '<p><b>🏆 New best day!</b></p>' : `<p>Best day: ⭐ ${game.best.stars} / ${max} · $${game.best.tips}</p>`}
     <p>All-time tips: <b>$${game.bank}</b></p>`, [
+    { label: '📒 Stickers', act: () => showStickers(() => { $('modal').hidden = true; game.day++; save(); startDay(); }) },
     { label: `Start day ${game.day + 1}`, cls: 'primary', act: () => { game.day++; save(); startDay(); } }
   ]);
   Sound.sfx('ding');
@@ -2209,6 +2397,7 @@ function platePancake() {
   if (cook.stage !== 'side2') return;
   const P = cook.P, c1 = P.side1, c2 = cook.c2;
   P.cook = c1 < 3.5 || c2 < 1.8 ? 'pale' : c1 > 9 || c2 > 7.5 ? 'burnt' : 'perfect';
+  stat(s => { if (P.cook === 'perfect') s.golden++; if (P.cook === 'burnt') s.burnt++; });
   cook.P = null; cook.stage = 'idle'; hideCookHud();
   if (game.order && !game.order.cooked[P.type]) {
     game.order.cooked[P.type] = { cook: P.cook, tint: P.tint || [1, 1, 1] };
@@ -2310,6 +2499,7 @@ function updateSwoop(rdt) {
 
 /* ---------- photo ---------- */
 function takePhoto() {
+  stat(s => s.photo++);
   renderer.render(scene, camera);
   const src = renderer.domElement.toDataURL('image/jpeg', 0.92);
   $('flash').classList.add('on'); setTimeout(() => $('flash').classList.remove('on'), 120);
@@ -2335,8 +2525,9 @@ function applyLook() {
   const p = SHOP.find(s => s.id === game.plate) || SHOP.find(s => s.id === 'plate-white');
   if (plateMesh) plateMesh.material.color.setHex(p.color);
   const w = SHOP.find(s => s.id === game.wall) || SHOP.find(s => s.id === 'wall-mint');
-  if (wallMesh && wallMesh.userData.theme !== w.theme) {
-    const old = wallMesh.material.map; wallMesh.material.map = cafeTexture(w.theme); wallMesh.material.needsUpdate = true; wallMesh.userData.theme = w.theme; old.dispose();
+  const lookKey = w.theme + '|' + (curHoliday || '');
+  if (wallMesh && wallMesh.userData.theme !== lookKey) {
+    const old = wallMesh.material.map; wallMesh.material.map = cafeTexture(w.theme, curHoliday); wallMesh.material.needsUpdate = true; wallMesh.userData.theme = lookKey; old.dispose();
   }
 }
 /* ---------- help ---------- */
@@ -2398,7 +2589,7 @@ function switchWorld(id) {
   if (id === worlds.current || !worlds.list[id]) return;
   save(); worlds.current = id;
   cancelCook(); clearPlate(); game.order = null; $('ticket').hidden = true; cust.state = 'away';
-  loadWorldIntoGame(); save(); applyLook(); applyLocks(); refreshUI();
+  loadWorldIntoGame(); save(); applyHoliday(); applyLook(); applyLocks(); refreshUI();
 }
 function showWorlds() {
   const ids = Object.keys(worlds.list).sort((a, b) => worlds.list[a].created - worlds.list[b].created);
@@ -2458,34 +2649,41 @@ function showWorldForm(id) {
 /* ---------- start menu ---------- */
 function showStart() {
   const resume = game.n > 0 && game.n < ORDERS_PER_DAY;
-  let mode = game.mode, diff = game.diff;
+  let mode = game.mode, diff = game.diff, party = game.freeHoliday || 'auto';
   $('modalCard').innerHTML = `<div class="big">🥞☕</div><h2>NOVAR’s Pancake Factory</h2>
     <button class="worldbtn" id="stWorld">🌍 <b>${esc(curWorld().name)}</b> <span>· change</span></button>
     <div class="seg" id="modeSeg"><button data-m="shift">☕ Café shift</button><button data-m="free">🎨 Free play</button></div>
     <p id="startInfo"></p>
-    <p style="margin-top:2px"><button class="worldbtn" id="stHelp" style="display:inline-flex">❓ How to play</button></p>
+    <div id="partyBox"><p class="lbl">Party theme</p><div class="seg wrap" id="partySeg">${['auto', 'off', ...HOLIDAY_CYCLE].map(k => `<button data-h="${k}" title="${k in HOLIDAYS ? HOLIDAYS[k].name : k}">${k === 'auto' ? '📅 Auto' : k === 'off' ? 'Off' : HOLIDAYS[k].emoji}</button>`).join('')}</div></div>
+    <p style="margin-top:2px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap"><button class="worldbtn" id="stHelp" style="margin:0">❓ How to play</button><button class="worldbtn" id="stStickers" style="margin:0">📒 Stickers <span>${STICKERS.filter(x => (game.stickers || {})[x[0]]).length}/${STICKERS.length}</span></button></p>
     <div class="row"><button class="primary" id="stGo"></button></div>`;
   const paint = () => {
     for (const b of $('modalCard').querySelectorAll('[data-m]')) b.classList.toggle('sel', b.dataset.m === mode);
+    for (const b of $('modalCard').querySelectorAll('[data-h]')) b.classList.toggle('sel', b.dataset.h === party);
+    $('partyBox').hidden = mode !== 'free';
+    const dayH = calendarHoliday() || (game.day % 4 === 0 ? HOLIDAY_CYCLE[(game.day / 4 - 1) % HOLIDAY_CYCLE.length] : null);
+    const hLine = dayH ? `${HOLIDAYS[dayH].emoji} <b>Today is ${HOLIDAYS[dayH].name} at the factory!</b><br>` : `<small>🎉 Next holiday party: Day ${nextPartyDay()}</small><br>`;
     $('startInfo').innerHTML = mode === 'shift'
-      ? `${resume ? `Welcome back! Day ${game.day}, order ${game.n + 1} of ${ORDERS_PER_DAY}.` : `Day ${game.day}: ${ORDERS_PER_DAY} hungry customers are coming.`}<br>Customers wait as long as you need. Cook each pancake on the griddle, add exactly what they ask for, then tap <b>Serve</b>.<br><small>🏆 Best day: ⭐ ${game.best.stars}/${ORDERS_PER_DAY * 3} · $${game.best.tips} · 💰 All-time tips: $${game.bank}</small>`
+      ? `${resume ? `Welcome back! Day ${game.day}, order ${game.n + 1} of ${ORDERS_PER_DAY}.` : `Day ${game.day}: ${ORDERS_PER_DAY} hungry customers are coming.`}<br>${hLine}Customers wait as long as you need. Cook each pancake on the griddle, add exactly what they ask for, then tap <b>Serve</b>.<br><small>🏆 Best day: ⭐ ${game.best.stars}/${ORDERS_PER_DAY * 3} · $${game.best.tips} · 💰 All-time tips: $${game.bank}</small>`
       : 'No customers, no clock, everything unlocked. Just build the stack of your dreams.';
     $('stGo').textContent = mode === 'shift' ? (resume ? 'Back to work' : 'Open the factory') : 'Start building';
   };
   for (const b of $('modalCard').querySelectorAll('[data-m]')) b.onclick = () => { mode = b.dataset.m; paint(); };
+  for (const b of $('modalCard').querySelectorAll('[data-h]')) b.onclick = () => { party = b.dataset.h; paint(); };
+  $('stStickers').onclick = () => { game.mode = mode; game.freeHoliday = party; save(); showStickers(showStart); };
   $('stHelp').onclick = () => { game.mode = mode; game.diff = diff; save(); showHelp(); $('hDone').onclick = showStart; };
   $('stWorld').onclick = () => { game.mode = mode; game.diff = diff; save(); showWorlds(); };
   $('stGo').onclick = () => {
     $('modal').hidden = true;
     const switched = mode !== game.mode || !game.started;
-    game.mode = mode; game.diff = diff; save();
+    game.mode = mode; game.diff = diff; game.freeHoliday = party; save();
     if (musicWanted && !Sound.on) { Sound.start(); syncMusicBtn(); }
     if (switched) {
       cancelCook(); clearPlate(); game.order = null; $('ticket').hidden = true; cust.state = 'away';
       game.started = true;
       if (mode === 'shift') { if (game.n === 0 || game.n >= ORDERS_PER_DAY) { if (game.n >= ORDERS_PER_DAY) game.day++; startDay(); } else newOrder(); }
     }
-    applyLocks(); refreshUI();
+    applyHoliday(); applyLocks(); refreshUI(); checkStickers();
   };
   paint();
   $('modal').hidden = false;
@@ -2496,7 +2694,7 @@ const BTN_KEY = { bButter: 'butter', bBerries: 'blueberry', bRasp: 'raspberry', 
 function applyLocks() {
   for (const [id, key] of Object.entries(BTN_KEY)) $(id).classList.toggle('locked', !unlocked(key));
   for (const b of document.querySelectorAll('[data-syrup]')) b.classList.toggle('locked', !unlocked(b.dataset.syrup));
-  for (const b of document.querySelectorAll('[data-type]')) b.classList.toggle('locked', !typeUnlocked(b.dataset.type));
+  for (const b of document.querySelectorAll('[data-type]')) { const k = b.dataset.type; b.hidden = !!TYPES[k].holiday && !typeUnlocked(k); b.classList.toggle('locked', !typeUnlocked(k)); b.classList.toggle('party', !!TYPES[k].holiday); }
 }
 function lockedToast(key) {
   const s = SHOP.find(x => x.id === key);
@@ -2550,6 +2748,7 @@ const guard = (key, fn) => () => {
   if (!unlocked(key)) { lockedToast(key); return; }
   if (!topP()) { toast(game.mode === 'shift' ? 'Cook a pancake first! 🍳' : 'Add a pancake first! 🥞', 1600); return; }
   fn();
+  stat(s => addTo(s.tops, key));
 };
 const topping = (key, fn) => guard(key, () => { curHand = ++handSeq; fn(); Sound.sfx('pop'); refreshUI(); });
 $('bButter').onclick = guard('butter', () => addButter());
@@ -2560,7 +2759,7 @@ function pourCount() { const P = topP(), S = P && pouring && P.syrups.find(x => 
 function pourOnce(kind) {
   const P = topP(), S = P && P.syrups.find(x => x.kind === kind);
   if (!P || (S ? S.pours >= 4 : P.syrups.length >= 3)) return false;
-  pourSyrup(kind); Sound.sfx('pour'); return true;
+  pourSyrup(kind); Sound.sfx('pour'); stat(s => addTo(s.syrups, kind)); return true;
 }
 function startPour(b) {
   const kind = b.dataset.syrup;
@@ -2650,6 +2849,7 @@ function frame() {
   updatePour(rdt);
   updateSteam(dt);
   updateFloaties(dt);
+  updateHoliday(rdt);
   updatePatience(rdt);
   // look at the griddle while cooking, otherwise at the stack
   const cooking = cook.P && cook.stage !== 'idle';
