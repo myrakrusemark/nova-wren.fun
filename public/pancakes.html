@@ -302,7 +302,8 @@ const TYPES = {
   lucky: { name: 'Lucky Clover', emoji: '🍀', pal: [[176, 206, 124], [130, 152, 72], [100, 118, 50], [200, 224, 152]], inc: 'clover', seed: 94, holiday: true },
   lemon: { name: 'Lemon Spring', emoji: '🍋', pal: [[242, 212, 112], [204, 152, 60], [164, 112, 40], [250, 234, 172]], inc: 'zest', seed: 95, holiday: true },
   firecracker: { name: 'Firecracker', emoji: '🎆', pal: BASE_PAL, inc: 'funfetti', incColors: ['#e3345a', '#ffffff', '#3b6fd8'], seed: 96, holiday: true },
-  souffle: { name: 'Soufflé', emoji: '☁️', pal: [[236, 192, 120], [204, 140, 66], [176, 112, 48], [246, 226, 186]], pores: 450, seed: 81, geo: { T: 0.42, R: 0.8, DOME: 0.06, RX: 0.17 } },
+  latke: { name: 'Latke', emoji: '🥔', pal: [[200, 136, 54], [138, 76, 24], [92, 48, 16], [150, 88, 30]], inc: 'shreds', seed: 97, holiday: true, crisp: true, geo: { T: 0.15, R: 0.84, DOME: 0.012, RX: 0.07 } },
+  souffle: { name: 'Soufflé', emoji: '☁️', soft: true, pal: [[236, 192, 120], [204, 140, 66], [176, 112, 48], [246, 226, 186]], pores: 450, seed: 81, geo: { T: 0.42, R: 0.8, DOME: 0.06, RX: 0.17 } },
 };
 
 function pancakeTextures(seed, k) {
@@ -310,7 +311,7 @@ function pancakeTextures(seed, k) {
   const S = 1024, N = makeNoise(seed);
   const [cc, cx] = canvasPair(S), [bc, bx] = canvasPair(S), [rc, rx] = canvasPair(S);
   const ci = cx.createImageData(S, S), bi = bx.createImageData(S, S), ri = rx.createImageData(S, S);
-  const smoothK = type.geo ? 0.55 : 1;
+  const smoothK = type.soft ? 0.55 : 1;
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const u = x / S * 2 - 1, v = y / S * 2 - 1, r = Math.hypot(u, v);
     const m = N.fbm(u * 2.6 + 5, v * 2.6 + 9, 4), f = N.fbm(u * 11 + 3, v * 11 + 1, 3), g = N.n2(u * 75, v * 75);
@@ -370,6 +371,16 @@ function pancakeTextures(seed, k) {
       cx.fillRect(px, py, 1 + N.rnd() * 2, 1 + N.rnd() * 2);
     }
   }
+  if (type.inc === 'shreds') {
+    for (let n = 0; n < 1600; n++) {
+      const [px, py] = at(Math.sqrt(N.rnd()) * 1.0, N.rnd() * 7), a = N.rnd() * 6.28, l = 8 + N.rnd() * 16;
+      const light = n % 5 < 3;
+      cx.strokeStyle = light ? `rgba(246,214,140,${0.65 + N.rnd() * 0.3})` : `rgba(80,38,10,${0.55 + N.rnd() * 0.35})`; cx.lineWidth = 2 + N.rnd() * 2;
+      cx.beginPath(); cx.moveTo(px, py); cx.quadraticCurveTo(px + Math.cos(a + 0.6) * l * 0.6, py + Math.sin(a + 0.6) * l * 0.6, px + Math.cos(a) * l, py + Math.sin(a) * l); cx.stroke();
+      bx.strokeStyle = light ? 'rgba(235,235,235,.8)' : 'rgba(40,40,40,.7)'; bx.lineWidth = 2;
+      bx.beginPath(); bx.moveTo(px, py); bx.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); bx.stroke();
+    }
+  }
   if (type.inc === 'hearts' || type.inc === 'clover') {
     for (let n = 0; n < 26; n++) {
       const [px, py] = at(Math.sqrt(N.rnd()) * 0.93, N.rnd() * 7), r = 6 + N.rnd() * 5;
@@ -407,7 +418,7 @@ function makePancake(k = 'buttermilk') {
   const PT = G.T, PRX = G.RX, PD = G.DOME;
   const N = makeNoise((Math.random() * 1e9) | 0);
   const ph = [0, 0, 0, 0].map(() => rand(0, 6.28));
-  const amp = [rand(.012, .03), rand(.008, .02), rand(.004, .012), rand(.002, .006)];
+  const amp = [rand(.012, .03), rand(.008, .02), rand(.004, .012), rand(.002, .006)].map(a => a * (type.crisp ? 2.6 : 1));
   const size = G.R * rand(0.97, 1.03);
   const sA = a => size * (1 + amp[0] * Math.sin(2 * a + ph[0]) + amp[1] * Math.sin(3 * a + ph[1]) + amp[2] * Math.sin(5 * a + ph[2]) + amp[3] * Math.sin(9 * a + ph[3]));
 
@@ -417,7 +428,7 @@ function makePancake(k = 'buttermilk') {
   for (let i = 1; i <= 34; i++) { const x = C * (1 - i / 34); pts.push(new THREE.Vector2(x, PT + PD * (1 - (x / C) ** 2))); }
   let geo = new THREE.LatheGeometry(pts, 180);
   geo.deleteAttribute('normal');
-  const pos = geo.attributes.position, uv = geo.attributes.uv, bumpAmt = type.geo ? 0.016 : 0.03;
+  const pos = geo.attributes.position, uv = geo.attributes.uv, bumpAmt = type.soft ? 0.016 : type.crisp ? 0.045 : 0.03;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i); let y = pos.getY(i);
     uv.setXY(i, x * 0.5 + 0.5, z * 0.5 + 0.5);
@@ -439,7 +450,7 @@ function makePancake(k = 'buttermilk') {
   const group = new THREE.Group(), layer = new THREE.Group();
   group.add(mesh); group.add(layer);
   return {
-    group, mesh, layer, type: k, name: type.name, T: PT, RX: PRX, DOME: PD, size, sA, jiggle: type.geo ? 1.8 : 1,
+    group, mesh, layer, type: k, name: type.name, T: PT, RX: PRX, DOME: PD, size, sA, jiggle: type.soft ? 1.8 : 1,
     baseY: 0, syrups: [], butter: null, items: [], defs: [], stack: [], sugar: [], fx: [], creams: 0,
     radiusAt(th) { return sA(th); },
     topAt(x, z) {
@@ -1899,26 +1910,31 @@ const TYPE_DAY = { buttermilk: 1, blueberry: 1, chocchip: 1, chocolate: 2, funfe
 const HOLIDAYS = {
   halloween: { name: 'Halloween', emoji: '🎃', fall: ['🦇', '🍂'], props: ['🎃', '👻'], type: 'pumpkin', bunting: ['#ff8a1f', '#3b2a4a', '#7ac143'] },
   winter: { name: 'Winter Holidays', emoji: '🎄', fall: ['❄️'], props: ['🎄', '☃️'], type: 'gingerbread', bunting: ['#d83a3a', '#2f8a4a', '#f4f1e8'] },
+  hanukkah: { name: 'Hanukkah', emoji: '🕎', fall: ['✨', '💙'], props: ['🕎', '🍩'], type: 'latke', bunting: ['#2f6fd8', '#ffffff', '#9fb6d6'] },
   valentine: { name: 'Valentine’s Day', emoji: '💝', fall: ['💗', '💕'], props: ['💝', '🌹'], type: 'sweetheart', bunting: ['#ff6fa3', '#ffffff', '#e3345a'] },
   stpatrick: { name: 'St. Patrick’s Day', emoji: '🍀', fall: ['🍀'], props: ['🌈', '🪙'], type: 'lucky', bunting: ['#2f9a4a', '#ffd23f', '#ffffff'] },
   spring: { name: 'Spring Fling', emoji: '🐣', fall: ['🌸'], props: ['🐣', '🌷'], type: 'lemon', bunting: ['#ffb3c7', '#9fd3ee', '#ffe98a'] },
   fireworks: { name: 'Fireworks Night', emoji: '🎆', fall: ['🎉', '✨'], props: ['🎆', '🎈'], type: 'firecracker', bunting: ['#e3345a', '#ffffff', '#3b6fd8'] },
 };
-const HOLIDAY_CYCLE = ['halloween', 'winter', 'valentine', 'stpatrick', 'spring', 'fireworks'];
+const HOLIDAY_CYCLE = ['halloween', 'hanukkah', 'winter', 'valentine', 'stpatrick', 'spring', 'fireworks'];
 let curHoliday = null;
 function easter(y) { // Gregorian Easter Sunday
   const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
   const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
   return new Date(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
 }
+// Hanukkah follows the Hebrew calendar: first-candle evening for each year (from Hebcal); it runs 8 nights
+const HANUKKAH = { 2024: [11, 25], 2025: [11, 14], 2026: [11, 4], 2027: [11, 24], 2028: [11, 12], 2029: [11, 1], 2030: [11, 20] };
 // each real holiday lasts from 1 week before to 1 week after; if two overlap, the closer one wins
 function calendarHoliday(now = new Date()) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()), DAY = 864e5;
   let best = null, bestGap = 99;
   for (const y of [today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1]) {
-    for (const [key, date] of [['fireworks', new Date(y, 0, 1)], ['valentine', new Date(y, 1, 14)], ['stpatrick', new Date(y, 2, 17)],
-      ['spring', easter(y)], ['fireworks', new Date(y, 6, 4)], ['halloween', new Date(y, 9, 31)], ['winter', new Date(y, 11, 25)]]) {
-      const gap = Math.abs(Math.round((today - date) / DAY));
+    const spans = [['fireworks', new Date(y, 0, 1)], ['valentine', new Date(y, 1, 14)], ['stpatrick', new Date(y, 2, 17)],
+      ['spring', easter(y)], ['fireworks', new Date(y, 6, 4)], ['halloween', new Date(y, 9, 31)], ['winter', new Date(y, 11, 25)]].map(([k, d]) => [k, d, d]);
+    if (HANUKKAH[y]) { const st = new Date(y, HANUKKAH[y][0], HANUKKAH[y][1]); spans.push(['hanukkah', st, new Date(st.getTime() + 8 * DAY)]); }
+    for (const [key, start, end] of spans) {
+      const gap = today < start ? Math.round((start - today) / DAY) : today > end ? Math.round((today - end) / DAY) : 0;
       if (gap <= 7 && gap < bestGap) { best = key; bestGap = gap; }
     }
   }
@@ -2008,7 +2024,7 @@ const STICKERS = [
   ['recycle', '♻️', 'Tidy Chef', 'Throw something in the bin', s => s.recycle >= 1],
   ['tips100', '💰', 'Tip Jar', 'Earn $100 in tips', (s, g) => g.bank >= 100],
   ['holiday', '🎉', 'Holiday Spirit', 'Cook on a holiday', s => s.holidays.length >= 1],
-  ['holiday6', '🎊', 'Party Animal', 'Celebrate all 6 holidays', s => s.holidays.length >= 6],
+  ['holiday6', '🎊', 'Party Animal', 'Celebrate all 7 holidays', s => s.holidays.length >= 7],
 ];
 const ST_DEF = () => ({ served: 0, perfect: 0, days: 0, perfectDay: 0, golden: 0, burnt: 0, tallest: 0, types: [], syrups: [], tops: [], photo: 0, recycle: 0, holidays: [] });
 const addTo = (arr, v) => { if (!arr.includes(v)) arr.push(v); };
